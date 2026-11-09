@@ -1,540 +1,989 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AR Rosetta Stone Dual-Hand Experience</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rosetta Stone AR — Front Camera & WebXR Spatial Interaction</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['Cinzel', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            gold: {
+              300: '#fef08a',
+              400: '#facc15',
+              500: '#eab308',
+              600: '#ca8a04',
+              700: '#a16207',
+            },
+            ar: {
+              bg: '#07090e',
+              panel: 'rgba(15, 20, 32, 0.85)',
+              border: 'rgba(234, 179, 8, 0.3)',
+            }
+          }
+        }
+      }
+    }
+  </script>
 
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- Three.js Engine & Loaders -->
+  <!-- Three.js for 3D & WebXR Rendering -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-  <!-- MediaPipe Hands & Camera Utils for Front Camera Tracking -->
+  <!-- MediaPipe Libraries for Front Camera AI Vision (Hands & Head/Face Detection) -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@300;400;600;700&display=swap');
-
-    .font-cinzel { font-family: 'Cinzel', serif; }
-
-    /* Glassmorphism utility design tokens */
+    /* Custom HUD Animations & Canvas Overlays */
     .glass-panel {
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(11, 15, 25, 0.82);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(234, 179, 8, 0.25);
+    }
+    
+    .ar-button-pulse {
+      box-shadow: 0 0 20px rgba(234, 179, 8, 0.5), inset 0 0 15px rgba(234, 179, 8, 0.3);
+      animation: pulse-glow 2.5s infinite ease-in-out;
     }
 
-    .glass-btn {
-      background: rgba(30, 41, 59, 0.88);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4), inset 0 0 10px rgba(234, 179, 8, 0.2); }
+      50% { box-shadow: 0 0 35px rgba(234, 179, 8, 0.8), inset 0 0 20px rgba(234, 179, 8, 0.5); }
     }
 
-    .glass-btn:hover, .glass-btn:active {
-      background: rgba(51, 65, 85, 0.98);
-      border-color: rgba(234, 179, 8, 0.7);
-      transform: translateY(-2px);
-    }
-
-    #webcam-feed {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+    /* Video feed styling for front camera view */
+    #webcam-video {
+      transform: scaleX(-1); /* Mirror view for natural AR feel */
       object-fit: cover;
+    }
+    #tracking-canvas {
       transform: scaleX(-1);
-      z-index: 0;
-    }
-
-    #canvas-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-    }
-
-    input[type=range] {
-      accent-color: #eab308;
-    }
-
-    @keyframes pulse-gold {
-      0%, 100% { box-shadow: 0 0 18px rgba(234, 179, 8, 0.4); }
-      50% { box-shadow: 0 0 36px rgba(234, 179, 8, 0.9); }
-    }
-    .gold-glow {
-      animation: pulse-gold 2.2s infinite;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 overflow-hidden select-none font-sans w-screen h-screen">
+<body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-950 text-slate-100">
 
-  <!-- Front Camera Video Feed -->
-  <video id="webcam-feed" playsinline class="hidden"></video>
-
-  <!-- Hidden File Input for Custom .GLB Upload -->
-  <input type="file" id="file-input" accept=".glb,.gltf" class="hidden">
-
-  <!-- iPad AR Landing Entrance Overlay (Flow Step 1) -->
-  <div id="landing-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl transition-all duration-500">
-    <div class="glass-panel max-w-lg w-full p-8 rounded-3xl text-center border border-amber-500/30 shadow-2xl flex flex-col items-center gap-6">
-      <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-slate-950 font-bold shadow-xl gold-glow">
-        <span class="font-cinzel text-4xl">𓋹</span>
+  <!-- HEADER NAVBAR -->
+  <header class="h-16 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-500/20 to-amber-700/40 border border-gold-500/50 flex items-center justify-center text-gold-400 font-serif font-bold text-xl shadow-lg">
+        𓇌
       </div>
-
-      <div class="space-y-2">
-        <h1 class="font-cinzel text-2xl sm:text-3xl font-black text-amber-400 tracking-wider">ENTER AR SPACE</h1>
-        <p class="text-xs sm:text-sm text-slate-300 font-medium">iPad & Front-Camera WebXR Experience</p>
-      </div>
-
-      <div class="bg-slate-900/70 p-4 rounded-2xl border border-slate-800 text-left text-xs text-slate-400 space-y-2 w-full">
-        <div class="flex items-center gap-2 text-amber-300 font-semibold">
-          <i class="fa-solid fa-camera"></i> Front Camera Permission Required
-        </div>
-        <p>Grant camera access to enable real-time MediaPipe dual-hand gesture tracking and head parallax on iPadOS Safari.</p>
-        <div class="flex items-center gap-2 text-cyan-300 font-semibold pt-1">
-          <i class="fa-solid fa-hand-holding-hand"></i> Gestures Included:
-        </div>
-        <p class="text-[11px] text-slate-400 font-mono">
-          • Move hands together/apart to <b>Zoom/Scale</b><br>
-          • Move hand midpoint to <b>Translate 3D Position</b><br>
-          • Tilt hands to <b>Rotate Artifact</b><br>
-          • Bring hands closer than 10cm to <b>Despawn</b>
-        </p>
-      </div>
-
-      <button id="btn-enter-ar" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold font-cinzel tracking-wider text-base sm:text-lg hover:brightness-110 transition-all shadow-xl flex items-center justify-center gap-3">
-        <span>START AR EXPERIENCE</span>
-        <i class="fa-solid fa-arrow-right"></i>
-      </button>
-    </div>
-  </div>
-
-  <!-- 3D WebGL Canvas Layer -->
-  <div id="canvas-container"></div>
-
-  <!-- HUD Interface Layer -->
-  <div id="ui-layer" class="relative z-20 pointer-events-none w-full h-full flex flex-col justify-between p-3 sm:p-5">
-
-    <!-- Top Navigation & Telemetry Header -->
-    <div class="flex flex-wrap items-center justify-between gap-3 w-full max-w-7xl mx-auto">
-      
-      <!-- Title Card -->
-      <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto shadow-2xl">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-slate-950 font-bold shadow-lg">
-          <span class="font-cinzel text-xl font-black">𓋹</span>
-        </div>
-        <div>
-          <h1 class="font-cinzel text-base sm:text-lg font-bold text-amber-400 tracking-wide leading-none">ROSETTA AR</h1>
-          <p class="text-[10px] sm:text-xs text-slate-400 font-medium">iPad Dual-Hand Spatial AR</p>
-        </div>
-      </div>
-
-      <!-- Telemetry Status Badges -->
-      <div class="glass-panel px-4 py-2 rounded-2xl flex flex-wrap items-center gap-3.5 text-xs font-mono pointer-events-auto shadow-2xl">
-        <div class="flex items-center gap-2">
-          <span id="ar-mode-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-          <span id="ar-mode-text" class="text-slate-200 font-semibold">Mode: 3D Studio</span>
-        </div>
-
-        <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
-
-        <div class="flex items-center gap-1.5">
-          <i id="icon-hand-left" class="fa-solid fa-hand text-slate-600"></i>
-          <span class="text-slate-400">L:</span>
-          <span id="status-hand-left" class="text-slate-500 font-bold">OFF</span>
-        </div>
-
-        <div class="h-4 w-px bg-slate-700"></div>
-
-        <div class="flex items-center gap-1.5">
-          <i id="icon-hand-right" class="fa-solid fa-hand text-slate-600"></i>
-          <span class="text-slate-400">R:</span>
-          <span id="status-hand-right" class="text-slate-500 font-bold">OFF</span>
-        </div>
-
-        <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
-
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-expand text-amber-400"></i>
-          <span id="scale-meter-text" class="text-amber-400 font-bold">1.00x</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Center Interaction Toast & Notifications -->
-    <div id="toast-overlay" class="mx-auto max-w-md w-full transition-all duration-300 opacity-0 transform translate-y-4">
-      <div id="toast-card" class="glass-panel px-5 py-3 rounded-2xl text-center shadow-2xl border border-amber-500/30">
-        <p id="toast-message" class="text-xs sm:text-sm font-medium text-amber-300">
-          <i class="fa-solid fa-circle-info mr-2"></i> Bring both hands within 10cm to close.
-        </p>
-      </div>
-    </div>
-
-    <!-- Hands Together Close Progress Box -->
-    <div id="close-warning-box" class="mx-auto max-w-xs w-full glass-panel p-3.5 rounded-2xl text-center hidden pointer-events-auto border-red-500/40 shadow-2xl">
-      <div class="flex items-center justify-between text-xs text-red-400 mb-1.5 font-bold">
-        <span><i class="fa-solid fa-compress mr-1.5"></i> CLOSING ARTIFACT</span>
-        <span id="close-percent">0%</span>
-      </div>
-      <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-        <div id="close-progress-bar" class="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 h-full w-0 transition-all duration-75"></div>
-      </div>
-    </div>
-
-    <!-- Bottom Action Controls -->
-    <div class="w-full max-w-4xl mx-auto flex flex-col items-center gap-3">
-
-      <!-- Virtual Dual Hand Distance & Touch Simulator Controls -->
-      <div id="simulator-panel" class="glass-panel p-3.5 rounded-2xl w-full max-w-md pointer-events-auto flex flex-col gap-2 shadow-2xl">
-        <div class="flex items-center justify-between text-xs text-slate-300">
-          <span class="font-semibold text-amber-400 flex items-center gap-1.5">
-            <i class="fa-solid fa-sliders"></i> Virtual Hand Distance / Touch Test
+      <div>
+        <h1 class="font-serif text-base sm:text-lg font-bold tracking-wider text-amber-100 flex items-center gap-2">
+          ROSETTA STONE AR
+          <span class="text-[10px] font-sans font-medium px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400">
+            WebXR & AI Hands
           </span>
-          <span id="sim-dist-value" class="font-mono text-amber-300 font-bold">0.45 m</span>
-        </div>
-        <input id="sim-dist-slider" type="range" min="0.05" max="0.85" step="0.01" value="0.45" 
-               class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
-        <div class="flex justify-between text-[10px] text-slate-400 font-mono">
-          <span class="text-red-400 font-semibold">&lt;0.10m (Clap / Close)</span>
-          <span>0.45m (Default)</span>
-          <span class="text-amber-400 font-semibold">0.85m (Max Zoom)</span>
-        </div>
-      </div>
-
-      <!-- Main Action Buttons Row -->
-      <div class="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto">
-        <button id="btn-spawn" class="glass-btn px-5 py-3 rounded-2xl flex items-center gap-2.5 text-xs sm:text-sm font-bold text-amber-400 gold-glow">
-          <span class="font-cinzel text-lg">𓃭</span>
-          <span>INSTANTIATE ROSETTA</span>
-        </button>
-
-        <button id="btn-upload" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
-          <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-sm"></i>
-          <span>Upload GLB</span>
-        </button>
-
-        <button id="btn-camera-ar" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
-          <i class="fa-solid fa-video text-emerald-400 text-sm"></i>
-          <span id="btn-camera-text">Front Cam AR</span>
-        </button>
-
-        <button id="btn-webxr-ar" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
-          <i class="fa-solid fa-vr-cardboard text-cyan-400 text-sm"></i>
-          <span id="btn-webxr-text">WebXR AR</span>
-        </button>
-
-        <button id="btn-recenter" class="glass-btn px-3.5 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-400">
-          <i class="fa-solid fa-arrows-to-eye text-sm"></i>
-        </button>
+        </h1>
+        <p class="text-xs text-slate-400">Front Camera Hand & Head Gesture Interaction</p>
       </div>
     </div>
-  </div>
 
-  <!-- Custom Model Upload Modal -->
-  <div id="upload-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden pointer-events-auto">
-    <div id="drop-zone" class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-slate-700 shadow-2xl flex flex-col gap-4 relative transition-all">
-      <button id="modal-close" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
-        <i class="fa-solid fa-xmark text-lg"></i>
+    <!-- Status Badges & Action Buttons -->
+    <div class="flex items-center space-x-2">
+      <!-- Tracking Status Badges -->
+      <div id="status-head" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
+        <span class="w-2 h-2 rounded-full bg-slate-500" id="dot-head"></span>
+        <span>Head</span>
+      </div>
+      <div id="status-hands" class="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
+        <span class="w-2 h-2 rounded-full bg-slate-500" id="dot-hands"></span>
+        <span id="label-hands">0 Hands</span>
+      </div>
+
+      <!-- WebXR Native AR Button -->
+      <button 
+        id="webxr-ar-btn" 
+        onclick="enterWebXR()"
+        class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-gold-500/40 text-gold-300 font-medium text-xs transition"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span>WebXR Session</span>
       </button>
 
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-          <i class="fa-solid fa-file-3d text-xl"></i>
+      <!-- Toggle Help Drawer -->
+      <button 
+        onclick="toggleHelpModal()"
+        class="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-gold-500/50 text-slate-300 hover:text-gold-400 transition"
+        title="Gesture Instructions"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <div class="relative flex-1 overflow-hidden bg-slate-950 flex flex-col">
+
+    <!-- HIDDEN WEBCAM VIDEO ELEMENT (Processed by MediaPipe) -->
+    <video idwebcam-video id="webcam-video" class="absolute inset-0 w-full h-full object-cover z-0 opacity-40 mix-blend-screen" playsinline muted></video>
+
+    <!-- 2D AI TRACKING CANVAS OVERLAY (Hand Skeletons & Distance Vectors) -->
+    <canvas id="tracking-canvas" class="absolute inset-0 w-full h-full z-10 pointer-events-none"></canvas>
+
+    <!-- THREE.JS 3D AR CANVAS -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full z-20"></div>
+
+    <!-- FLOATING TOP AR FEEDBACK CARD -->
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center space-x-2">
+      <div id="gesture-banner" class="glass-panel px-4 py-2 rounded-full text-xs font-medium text-amber-200 border border-gold-500/40 shadow-xl flex items-center space-x-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-gold-400 animate-ping"></span>
+        <span id="gesture-banner-text">Waiting for Front Camera Initialization...</span>
+      </div>
+    </div>
+
+    <!-- IN-AR INSTANTIATE / CONTROL OVERLAY PANEL -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center space-y-3 w-full max-w-sm px-4">
+
+      <!-- AR Instantiate Button (Shown when stone is not active) -->
+      <button 
+        id="instantiate-btn"
+        onclick="instantiateStone()"
+        class="ar-button-pulse w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-gold-600 via-amber-500 to-gold-600 text-slate-950 font-serif font-bold text-base tracking-wider uppercase flex items-center justify-center space-x-3 transition transform active:scale-95 hover:brightness-110"
+      >
+        <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+        </svg>
+        <span>Instantiate Rosetta Stone</span>
+      </button>
+
+      <!-- Active Model Quick Bar (Shown when stone is instantiated) -->
+      <div id="active-controls" class="hidden glass-panel w-full p-2.5 rounded-2xl flex items-center justify-between space-x-2 border border-gold-500/40">
+        <div class="flex items-center space-x-2 pl-2">
+          <span class="text-xs font-serif font-bold text-gold-300">ROSETTA STONE</span>
+          <span id="scale-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-gold-400 border border-gold-500/30">Scale: 100%</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5">
+          <button 
+            onclick="resetModelTransform()"
+            class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
+            title="Reset Scale & Rotation"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+          
+          <button 
+            onclick="dismissStone()"
+            class="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-semibold text-xs transition flex items-center space-x-1"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SIDE PANEL TOGGLE FOR CAMERA FEED & VISUALS -->
+    <div class="absolute bottom-6 left-4 z-30 flex flex-col space-y-2">
+      <button 
+        onclick="toggleWebcamPreview()" 
+        id="toggle-preview-btn"
+        class="p-2.5 rounded-xl glass-panel text-slate-300 hover:text-gold-400 text-xs flex items-center space-x-2 transition"
+        title="Toggle Camera Preview Visibility"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        <span class="hidden sm:inline">Camera Feed</span>
+      </button>
+
+      <button 
+        onclick="toggleSkeletonOverlay()" 
+        id="toggle-skeleton-btn"
+        class="p-2.5 rounded-xl glass-panel text-gold-400 text-xs flex items-center space-x-2 transition"
+        title="Toggle AI Hand Skeleton Overlay"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0 0v2.5m0-2.5h2.5m-2.5 0H4.5m10.5-7V9.5m0 0V12m0-2.5h2.5m-2.5 0H12.5" />
+        </svg>
+        <span class="hidden sm:inline">Hand Skeleton</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- HELP & GESTURE GUIDE MODAL -->
+  <div id="help-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel border border-gold-500/50 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl relative">
+      
+      <button onclick="toggleHelpModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gold-500/20 border border-gold-500/40 flex items-center justify-center text-gold-400 font-bold text-xl">
+          🖐️
         </div>
         <div>
-          <h2 class="font-cinzel text-lg font-bold text-amber-400">Load Rosetta Stone GLTF / GLB</h2>
-          <p class="text-xs text-slate-400">Downloaded from British Museum Sketchfab collection</p>
+          <h3 class="font-serif font-bold text-lg text-amber-100">Hand & Head Gesture Controls</h3>
+          <p class="text-xs text-slate-400">Interact in 3D AR space using your front camera</p>
         </div>
       </div>
 
-      <div id="drag-area" class="border-2 border-dashed border-slate-600 hover:border-amber-400/60 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center gap-2 bg-slate-900/40">
-        <i class="fa-solid fa-cloud-arrow-up text-3xl text-amber-400/80"></i>
-        <p class="text-xs font-medium text-slate-200">Drag & Drop your <span class="text-amber-400 font-mono font-bold">.glb</span> or <span class="text-amber-400 font-mono font-bold">.gltf</span> file here</p>
-        <p class="text-[11px] text-slate-500">or tap to select from iPad Files</p>
+      <div class="space-y-3 text-xs">
+        
+        <!-- Gesture 1: Instantiate -->
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start space-x-3">
+          <div class="text-2xl pt-0.5">✨</div>
+          <div>
+            <div class="font-bold text-gold-300 text-sm">1. Instantiate 3D Model</div>
+            <div class="text-slate-300 mt-0.5">Click the gold <span class="text-gold-400 font-semibold">"Instantiate Rosetta Stone"</span> AR button on screen or inside the 3D space to summon the artifact.</div>
+          </div>
+        </div>
+
+        <!-- Gesture 2: Zoom / Scale -->
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start space-x-3">
+          <div class="text-2xl pt-0.5">👐</div>
+          <div>
+            <div class="font-bold text-gold-300 text-sm">2. Two-Hand Zoom (Scale)</div>
+            <div class="text-slate-300 mt-0.5">Raise <span class="text-amber-200 font-semibold">both hands</span> into the camera view. Spread your hands apart to zoom in (scale up) or bring them closer to zoom out.</div>
+          </div>
+        </div>
+
+        <!-- Gesture 3: Rotation -->
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start space-x-3">
+          <div class="text-2xl pt-0.5">🔄</div>
+          <div>
+            <div class="font-bold text-gold-300 text-sm">3. Hand Rotation</div>
+            <div class="text-slate-300 mt-0.5">Tilt or move your hands horizontally relative to each other, or twist your palm to rotate the Rosetta Stone continuously in 3D.</div>
+          </div>
+        </div>
+
+        <!-- Gesture 4: Close / Dismiss -->
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start space-x-3 border-red-500/30 bg-red-950/10">
+          <div class="text-2xl pt-0.5">👏</div>
+          <div>
+            <div class="font-bold text-red-300 text-sm">4. Hands Together to Close</div>
+            <div class="text-slate-300 mt-0.5">Bring <span class="text-red-200 font-semibold">both wrists/hands close together</span> (clap position) to immediately collapse and close the 3D model.</div>
+          </div>
+        </div>
+
+        <!-- Head Tracking -->
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-start space-x-3">
+          <div class="text-2xl pt-0.5">🗣️</div>
+          <div>
+            <div class="font-bold text-gold-300 text-sm">5. Head Perspective (Parallax)</div>
+            <div class="text-slate-300 mt-0.5">Move your head left/right/up/down in front of the camera to shift the AR view perspective dynamically.</div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 flex flex-col gap-1">
-        <span class="font-semibold text-slate-300 flex items-center gap-1">
-          <i class="fa-solid fa-link text-amber-400"></i> Sketchfab Link:
-        </span>
-        <a href="https://sketchfab.com/3d-models/the-rosetta-stone-1e03509704a3490e99a173e53b93e282" target="_blank" class="text-amber-400 underline hover:text-amber-300 truncate">
-          https://sketchfab.com/3d-models/the-rosetta-stone-1e03509704a3490e99a173e53b93e282
-        </a>
-      </div>
+      <button onclick="toggleHelpModal()" class="w-full py-2.5 bg-gold-600 hover:bg-gold-500 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider">
+        Got it! Start AR Experience
+      </button>
 
-      <div class="flex justify-end gap-2 mt-2">
-        <button id="modal-cancel-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-300">Close</button>
-        <button id="modal-procedural-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold text-amber-400">Use Procedural Model</button>
-      </div>
     </div>
   </div>
 
-  <!-- JavaScript Engine Logic -->
+  <!-- JAVASCRIPT AR & GESTURE LOGIC -->
   <script>
-    // ... existing AudioEngine code ...
+    // --- GLOBAL APP STATE ---
+    let scene, camera, renderer;
+    let rosettaGroup = null; // Contains 3D Rosetta Stone mesh
+    let spawnPedestal = null; // Floating 3D AR button
+    let particleSystem = null;
+    let isInstantiated = false;
 
-    class RosettaARApp {
-      constructor() {
-        // ... existing property initializations ...
-        this.landingScreen = document.getElementById('landing-screen');
-        this.btnEnterAR = document.getElementById('btn-enter-ar');
+    // AI Tracking State
+    let webcamElement, trackingCanvas, trackingCtx;
+    let cameraPipe = null;
+    let handsTracker = null;
+    let faceTracker = null;
 
-        // Extended Dual Hand Mechanics State
-        this.modelState = {
-          spawned: false,
-          currentScale: 1.0,
-          targetScale: 1.0,
-          initialHandDistance: null,
-          initialModelScale: 1.0,
-          closeTimer: 0,
-          closeDuration: 0.45,
-          targetPosition: new THREE.Vector3(0, 1.25, -0.6),
-          targetRotationY: 0
-        };
+    let showSkeleton = true;
+    let showWebcam = true;
 
-        // Touch Multitouch iPad Simulation support
-        this.touchPoints = { count: 0, p1: new THREE.Vector2(), p2: new THREE.Vector2() };
+    // Gesture State Variables
+    let initialHandDistance = null;
+    let currentScale = 1.0;
+    let targetRotationY = 0;
+    let currentRotationY = 0;
+    let headPositionNormalized = { x: 0, y: 0 };
+    let handsTogetherCount = 0;
 
-        // Execution Pipeline
-        this.initThreeJS();
-        this.createLighting();
-        this.createHandVisualizers();
-        this.createProceduralRosettaStone();
-        this.createSpatial3DButton();
-        this.createParticleSystem();
+    // Web Audio Synthesizer
+    let audioCtx = null;
 
-        this.initWebXRCheck();
-        this.initMediaPipeHands();
-        this.setupEventListeners();
-        this.setupiPadTouchEvents();
-        this.setupFileDragAndDrop();
+    // --- INITIALIZE THREE.JS 3D AR CANVAS ---
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
 
-        this.animate = this.animate.bind(this);
-        this.renderer.setAnimationLoop(this.animate);
-      }
+      // 1. Scene setup
+      scene = new THREE.Scene();
 
-      /**
-       * Flow Step 1: Landing Screen Entrance & Permission Handler
-       */
-      setupEventListeners() {
-        // Enter AR Space Landing Button Flow
-        this.btnEnterAR.addEventListener('click', async () => {
-          this.audio.playClickSound();
-          this.landingScreen.classList.add('opacity-0', 'pointer-events-none');
-          setTimeout(() => this.landingScreen.classList.add('hidden'), 500);
+      // 2. Camera setup
+      camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
+      camera.position.set(0, 0, 3.2);
 
-          // Request Camera & Start Front Cam AR
-          await this.toggleCameraAR();
-          this.showToast("Welcome! Click 'INSTANTIATE ROSETTA' or use 3D button.");
-        });
+      // 3. Renderer setup with WebXR enabled
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.xr.enabled = true;
+      container.appendChild(renderer.domElement);
 
-        this.btnSpawn.addEventListener('click', () => {
-          this.audio.playSpawnSound();
-          this.spawnRosettaStone();
-        });
+      // 4. Lighting setup
+      const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.9);
+      scene.add(ambientLight);
 
-        this.btnWebXR.addEventListener('click', () => {
-          this.audio.playClickSound();
-          this.toggleWebXRAR();
-        });
+      const mainLight = new THREE.DirectionalLight(0xffe8c3, 1.8);
+      mainLight.position.set(3, 4, 3);
+      mainLight.castShadow = true;
+      scene.add(mainLight);
 
-        this.btnCamera.addEventListener('click', () => {
-          this.audio.playClickSound();
-          this.toggleCameraAR();
-        });
+      const rimLight = new THREE.DirectionalLight(0x4a86e8, 0.8);
+      rimLight.position.set(-3, -2, -2);
+      scene.add(rimLight);
 
-        this.btnRecenter.addEventListener('click', () => {
-          this.audio.playClickSound();
-          if (this.rosettaModelGroup) {
-            this.modelState.targetPosition.set(0, 1.25, -0.6);
-            this.modelState.targetRotationY = 0;
-            this.rosettaModelGroup.position.set(0, 1.25, -0.6);
-            this.rosettaModelGroup.rotation.set(0, 0, 0);
-            this.showToast("Artifact recentered.");
-          }
-        });
+      // 5. Build 3D Spawn Button / Pedestal in AR Space
+      build3DSpawnPedestal();
 
-        this.simSlider.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value);
-          document.getElementById('sim-dist-value').textContent = val.toFixed(2) + ' m';
-        });
+      // 6. Handle Window Resize
+      window.addEventListener('resize', onWindowResize);
 
-        // 3D Spatial Button Interaction Raycasting
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        window.addEventListener('pointerdown', (e) => {
-          if (e.target.closest('#ui-layer') && !e.target.closest('#canvas-container')) return;
-          mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-          mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-          raycaster.setFromCamera(mouse, this.camera);
-
-          if (this.spatialButton3D) {
-            const intersects = raycaster.intersectObjects(this.spatialButton3D.children);
-            if (intersects.length > 0) {
-              this.audio.playSpawnSound();
-              this.spawnRosettaStone();
-            }
-          }
-        });
-      }
-
-      /**
-       * iPad Dual-Finger Touch Simulation Handler
-       */
-      setupiPadTouchEvents() {
-        const domElement = this.renderer.domElement;
-
-        domElement.addEventListener('touchstart', (e) => {
-          if (e.touches.length === 2) {
-            this.isSimulatorActive = true;
-          }
-        }, { passive: true });
-
-        domElement.addEventListener('touchmove', (e) => {
-          if (e.touches.length === 2) {
-            const t1 = e.touches[0];
-            const t2 = e.touches[1];
-
-            // Convert touch to 3D world plane points
-            const p1X = (t1.clientX / window.innerWidth - 0.5) * 1.6;
-            const p1Y = -(t1.clientY / window.innerHeight - 0.5) * 1.2 + 1.2;
-            const p2X = (t2.clientX / window.innerWidth - 0.5) * 1.6;
-            const p2Y = -(t2.clientY / window.innerHeight - 0.5) * 1.2 + 1.2;
-
-            this.handsData.left.active = true;
-            this.handsData.right.active = true;
-            this.handsData.left.position.set(p1X, p1Y, -0.6);
-            this.handsData.right.position.set(p2X, p2Y, -0.6);
-
-            this.handVisualizerLeft.visible = true;
-            this.handVisualizerRight.visible = true;
-            this.handVisualizerLeft.userData.jointSpheres[8].position.copy(this.handsData.left.position);
-            this.handVisualizerRight.userData.jointSpheres[8].position.copy(this.handsData.right.position);
-
-            this.updateHandUIStatus();
-          }
-        }, { passive: true });
-      }
-
-      /**
-       * Process Dual Hand Interaction: Move (Midpoint), Rotate (Angle), Scale (Distance), & Despawn (<10cm)
-       */
-      processDualHandInteractions(deltaTime) {
-        if (!this.modelState.spawned || !this.rosettaModelGroup.visible) return;
-
-        let leftPos = null;
-        let rightPos = null;
-
-        if (this.isXRActive) {
-          // ... WebXR hand poses extraction ...
-        } else if (this.isCameraARActive || this.handsData.left.active) {
-          if (this.handsData.left.active) leftPos = this.handsData.left.position;
-          if (this.handsData.right.active) rightPos = this.handsData.right.position;
-        } else if (this.isSimulatorActive) {
-          const dist = parseFloat(this.simSlider.value);
-          leftPos = new THREE.Vector3(-dist / 2, 1.25, -0.6);
-          rightPos = new THREE.Vector3(dist / 2, 1.25, -0.6);
-
-          this.handVisualizerLeft.visible = true;
-          this.handVisualizerRight.visible = true;
-          this.handVisualizerLeft.userData.jointSpheres[8].position.copy(leftPos);
-          this.handVisualizerRight.userData.jointSpheres[8].position.copy(rightPos);
-
-          this.handsData.left.active = true;
-          this.handsData.right.active = true;
-          this.updateHandUIStatus();
-        }
-
-        if (leftPos && rightPos) {
-          // A. 3D POSITION TRANSLATION (Midpoint between Left & Right Hands)
-          const midpoint = new THREE.Vector3().addVectors(leftPos, rightPos).multiplyScalar(0.5);
-          this.modelState.targetPosition.copy(midpoint);
-
-          // B. 3D ROTATION (Vector Angle between hands)
-          const dx = rightPos.x - leftPos.x;
-          const dz = rightPos.z - leftPos.z;
-          this.modelState.targetRotationY = Math.atan2(dx, dz) - Math.PI / 2;
-
-          // C. EUCLIDEAN DISTANCE ZOOM & SCALE
-          const currentDistance = leftPos.distanceTo(rightPos);
-
-          if (this.modelState.initialHandDistance === null) {
-            this.modelState.initialHandDistance = currentDistance;
-            this.modelState.initialModelScale = this.modelState.currentScale;
-          }
-
-          const scaleRatio = currentDistance / this.modelState.initialHandDistance;
-          let calculatedScale = this.modelState.initialModelScale * scaleRatio;
-          calculatedScale = THREE.MathUtils.clamp(calculatedScale, 0.25, 3.5);
-          this.modelState.targetScale = calculatedScale;
-
-          // D. BRING-TOGETHER CLOSE / DESPAWN (< 0.10 meters / 10cm)
-          const closeThreshold = 0.10;
-
-          if (currentDistance < closeThreshold) {
-            this.modelState.closeTimer += deltaTime;
-            const progress = Math.min(this.modelState.closeTimer / this.modelState.closeDuration, 1.0);
-
-            this.closeWarningBox.classList.remove('hidden');
-            this.closeProgressBar.style.width = (progress * 100) + '%';
-            this.closePercent.textContent = Math.round(progress * 100) + '%';
-
-            const shrinkRatio = 1.0 - (progress * 0.7);
-            this.rosettaModelGroup.scale.multiplyScalar(shrinkRatio);
-
-            if (progress >= 1.0) {
-              this.triggerCollapseDespawn();
-            }
-          } else {
-            this.modelState.closeTimer = 0;
-            this.closeWarningBox.classList.add('hidden');
-          }
-
-        } else {
-          this.modelState.initialHandDistance = null;
-          this.closeWarningBox.classList.add('hidden');
-        }
-
-        // Smooth Lerp Transformations
-        this.rosettaModelGroup.position.lerp(this.modelState.targetPosition, 0.12);
-        this.rosettaModelGroup.rotation.y = THREE.MathUtils.lerp(
-          this.rosettaModelGroup.rotation.y,
-          this.modelState.targetRotationY,
-          0.1
-        );
-
-        this.modelState.currentScale = THREE.MathUtils.lerp(
-          this.modelState.currentScale,
-          this.modelState.targetScale,
-          0.1
-        );
-
-        if (this.modelState.spawned && this.rosettaModelGroup.scale.x < this.modelState.currentScale) {
-          const s = THREE.MathUtils.lerp(this.rosettaModelGroup.scale.x, this.modelState.currentScale, 0.12);
-          this.rosettaModelGroup.scale.set(s, s, s);
-        }
-
-        this.scaleMeterText.textContent = this.modelState.currentScale.toFixed(2) + 'x';
-      }
-
-      // ... existing methods ...
+      // 7. Start Render Loop
+      renderer.setAnimationLoop(renderLoop);
     }
 
-    // ... existing window onload initialization ...
+    // --- BUILD PROCEDURAL 3D ROSETTA STONE MODEL ---
+    function buildRosettaStoneModel() {
+      const group = new THREE.Group();
+
+      // Granodiorite Dark Stone Material with hieroglyphic bumps & subtle metallic sheen
+      const canvasTex = createStoneTexture();
+      const texture = new THREE.CanvasTexture(canvasTex);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+
+      const bumpTex = new THREE.CanvasTexture(createStoneBumpTexture());
+
+      const stoneMaterial = new THREE.MeshStandardMaterial({
+        color: 0x1f2128,
+        roughness: 0.75,
+        metalness: 0.15,
+        map: texture,
+        bumpMap: bumpTex,
+        bumpScale: 0.04,
+      });
+
+      // Main Slab Geometry (Approximate proportions: 1.12m H x 0.75m W x 0.28m D)
+      const shape = new THREE.Shape();
+      const w = 0.65, h = 0.95, r = 0.12;
+
+      // Curved top header shape with chipped top-left fracture characteristic of Rosetta Stone
+      shape.moveTo(-w/2, -h/2);
+      shape.lineTo(w/2, -h/2);
+      shape.lineTo(w/2, h/2 - r);
+      shape.quadraticCurveTo(w/2, h/2, w/2 - r, h/2);
+      shape.lineTo(-w/4, h/2 + 0.03); // Broken top curve
+      shape.lineTo(-w/2 + 0.08, h/2 - 0.08); // Top-left fracture edge
+      shape.lineTo(-w/2, -h/2);
+
+      const extrudeSettings = {
+        steps: 1,
+        depth: 0.18,
+        bevelEnabled: true,
+        bevelThickness: 0.02,
+        bevelSize: 0.02,
+        bevelSegments: 3
+      };
+
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      geometry.center();
+
+      const mesh = new THREE.Mesh(geometry, stoneMaterial);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+
+      // Add 3 Script Highlight Bands (Gold Engraved Effect overlay)
+      const bandMat1 = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+      const band1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.22), bandMat1);
+      band1.position.set(0, 0.26, 0.101);
+      group.add(band1);
+
+      const bandMat2 = new THREE.MeshBasicMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+      const band2 = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.28), bandMat2);
+      band2.position.set(0, 0.0, 0.101);
+      group.add(band2);
+
+      const bandMat3 = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+      const band3 = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.3), bandMat3);
+      band3.position.set(0, -0.28, 0.101);
+      group.add(band3);
+
+      // Create ambient particle glow under model
+      createParticleEffect(group);
+
+      group.position.set(0, 0, 0);
+      group.scale.set(0.001, 0.001, 0.001); // Start zero scale for spawn animation
+      return group;
+    }
+
+    // Generate Procedural Textures for Stone & Hieroglyphic Engravings
+    function createStoneTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // Base Granodiorite Dark Gray Noise
+      ctx.fillStyle = '#1c1e24';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      // Granular quartz/pink/black specs
+      for (let i = 0; i < 40000; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 1024;
+        const size = Math.random() * 2 + 0.5;
+        const val = Math.random();
+        ctx.fillStyle = val > 0.8 ? '#4a4d5a' : (val > 0.4 ? '#0d0e12' : '#2d303b');
+        ctx.fillRect(x, y, size, size);
+      }
+
+      // Draw simulated 3 Script Bands (Hieroglyphs Top, Demotic Middle, Greek Base)
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.7)';
+      ctx.font = '14px serif';
+
+      // Top: Hieroglyphic Cartouches & Symbols
+      const hieros = ['𓇌', '𓀀', '𓁐', '𓏏', '𓌱', '𓈖', '𓉔', '𓍔', '𓎛', '𓏞', '𓄿', '𓂋', '𓏤'];
+      for (let y = 80; y < 320; y += 22) {
+        let line = '';
+        for (let x = 60; x < 960; x += 30) {
+          line += hieros[Math.floor(Math.random() * hieros.length)] + ' ';
+        }
+        ctx.fillText(line, 80, y);
+      }
+
+      // Middle: Demotic Script Cursive lines
+      ctx.fillStyle = 'rgba(210, 215, 230, 0.6)';
+      ctx.font = '11px sans-serif';
+      for (let y = 360; y < 650; y += 16) {
+        ctx.fillRect(80 + Math.random() * 20, y, 820 - Math.random() * 40, 2);
+      }
+
+      // Bottom: Ancient Greek Script lines
+      ctx.fillStyle = 'rgba(147, 197, 253, 0.65)';
+      ctx.font = '12px serif';
+      for (let y = 690; y < 960; y += 18) {
+        ctx.fillText("ΒΑΣΙΛΕΥΟΝΤΟΣ ΤΟΥ ΝΕΟΥ ΚΑΙ ΠΑΡΑΛΑΒΟΝΤΟΣ ΤΗΝ ΒΑΣΙΛΕΙΑΝ ΠΑΡΑ ΤΟΥ ΠΑΤΡΟΣ...", 70, y);
+      }
+
+      return canvas;
+    }
+
+    function createStoneBumpTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, 512, 512);
+
+      for (let i = 0; i < 20000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const shade = Math.floor(Math.random() * 255);
+        ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+        ctx.fillRect(x, y, 1.5, 1.5);
+      }
+      return canvas;
+    }
+
+    // --- 3D IN-AR SPAWN PEDESTAL BUTTON ---
+    function build3DSpawnPedestal() {
+      spawnPedestal = new THREE.Group();
+
+      const ringGeo = new THREE.RingGeometry(0.35, 0.42, 32);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xeab308, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      spawnPedestal.add(ring);
+
+      const baseGeo = new THREE.CylinderGeometry(0.3, 0.35, 0.08, 32);
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x141622, roughness: 0.3, metalness: 0.8 });
+      const base = new THREE.Mesh(baseGeo, baseMat);
+      base.position.y = -0.04;
+      spawnPedestal.add(base);
+
+      spawnPedestal.position.set(0, -0.4, 0);
+      scene.add(spawnPedestal);
+    }
+
+    function createParticleEffect(parentGroup) {
+      const particleCount = 60;
+      const geometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(particleCount * 3);
+
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        positions[i] = (Math.random() - 0.5) * 1.2;
+        positions[i + 1] = (Math.random() - 0.5) * 1.2;
+        positions[i + 2] = (Math.random() - 0.5) * 0.5;
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        color: 0xfacc15,
+        size: 0.025,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending
+      });
+
+      particleSystem = new THREE.Points(geometry, material);
+      parentGroup.add(particleSystem);
+    }
+
+    // --- INSTANTIATE & DISMISS ACTIONS ---
+    function instantiateStone() {
+      if (isInstantiated) return;
+
+      playSynthSound(440, 'sine', 0.4);
+
+      if (!rosettaGroup) {
+        rosettaGroup = buildRosettaStoneModel();
+        scene.add(rosettaGroup);
+      }
+
+      isInstantiated = true;
+      spawnPedestal.visible = false;
+
+      // Animate Smooth Scale Up & Rotation Spawn
+      let progress = 0;
+      const startTime = performance.now();
+      const animateSpawn = () => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        progress = Math.min(elapsed / 0.8, 1);
+        
+        // Elastic overshoot easing
+        const easeScale = Math.sin(progress * Math.PI * 0.5);
+        rosettaGroup.scale.setScalar(easeScale * currentScale);
+        rosettaGroup.rotation.y = (1 - progress) * Math.PI * 2;
+
+        if (progress < 1) {
+          requestAnimationFrame(animateSpawn);
+        }
+      };
+      animateSpawn();
+
+      // UI Update
+      document.getElementById('instantiate-btn').classList.add('hidden');
+      document.getElementById('active-controls').classList.remove('hidden');
+      updateBanner("✨ Rosetta Stone Instantiated! Use hands to Zoom & Rotate");
+    }
+
+    function dismissStone() {
+      if (!isInstantiated || !rosettaGroup) return;
+
+      playSynthSound(220, 'triangle', 0.5);
+
+      // Shrink & Collapse animation
+      const startTime = performance.now();
+      const animateDismiss = () => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        const progress = Math.min(elapsed / 0.5, 1);
+        const scale = (1 - progress) * currentScale;
+
+        rosettaGroup.scale.setScalar(scale);
+
+        if (progress < 1) {
+          requestAnimationFrame(animateDismiss);
+        } else {
+          scene.remove(rosettaGroup);
+          rosettaGroup = null;
+          isInstantiated = false;
+          spawnPedestal.visible = true;
+
+          document.getElementById('instantiate-btn').classList.remove('hidden');
+          document.getElementById('active-controls').classList.add('hidden');
+          updateBanner("👏 Model Closed! Click button to re-instantiate");
+        }
+      };
+      animateDismiss();
+    }
+
+    function resetModelTransform() {
+      currentScale = 1.0;
+      targetRotationY = 0;
+      currentRotationY = 0;
+      if (rosettaGroup) {
+        rosettaGroup.scale.setScalar(1.0);
+        rosettaGroup.rotation.set(0, 0, 0);
+      }
+      document.getElementById('scale-badge').textContent = 'Scale: 100%';
+      updateBanner("↺ Transform Reset");
+    }
+
+    // --- MEDIAPIPE FRONT CAMERA AI TRACKING (HANDS & HEAD) ---
+    function initCameraAndAI() {
+      webcamElement = document.getElementById('webcam-video');
+      trackingCanvas = document.getElementById('tracking-canvas');
+      trackingCtx = trackingCanvas.getContext('2d');
+
+      // 1. Initialize MediaPipe Hands
+      handsTracker = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+
+      handsTracker.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.65
+      });
+
+      handsTracker.onResults(onHandResults);
+
+      // 2. Initialize MediaPipe Face Mesh for Head Detection
+      faceTracker = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+
+      faceTracker.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: false,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+      });
+
+      faceTracker.onResults(onHeadResults);
+
+      // 3. Start Camera Stream
+      cameraPipe = new Camera(webcamElement, {
+        onFrame: async () => {
+          await handsTracker.send({ image: webcamElement });
+          await faceTracker.send({ image: webcamElement });
+        },
+        width: 640,
+        height: 480
+      });
+
+      cameraPipe.start()
+        .then(() => {
+          updateBanner("📷 Front Camera Active. Ready for Hand & Head Input");
+        })
+        .catch(err => {
+          console.error("Camera access error:", err);
+          updateBanner("⚠️ Camera permission required for AR gestures");
+        });
+    }
+
+    // --- AI HAND RESULTS & GESTURE RECOGNITION ---
+    function onHandResults(results) {
+      // Resize canvas to match window
+      trackingCanvas.width = webcamElement.clientWidth || window.innerWidth;
+      trackingCanvas.height = webcamElement.clientHeight || window.innerHeight;
+
+      trackingCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+
+      const multiHand = results.multiHandLandmarks;
+      const handCount = multiHand ? multiHand.length : 0;
+
+      // Update UI Status Badges
+      const handsDot = document.getElementById('dot-hands');
+      const handsLabel = document.getElementById('label-hands');
+
+      if (handCount > 0) {
+        handsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        handsLabel.textContent = `${handCount} Hand${handCount > 1 ? 's' : ''}`;
+      } else {
+        handsDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        handsLabel.textContent = '0 Hands';
+        initialHandDistance = null;
+      }
+
+      if (!multiHand || multiHand.length === 0) return;
+
+      // Draw Hand Skeletons if overlay enabled
+      if (showSkeleton) {
+        drawHandSkeletons(multiHand);
+      }
+
+      // GESTURE LOGIC 1: Bring Both Hands Together to CLOSE (Clap Gesture)
+      if (multiHand.length === 2) {
+        const wrist1 = multiHand[0][0]; // Wrist landmark hand 1
+        const wrist2 = multiHand[1][0]; // Wrist landmark hand 2
+
+        const wristDist = Math.hypot(wrist1.x - wrist2.x, wrist1.y - wrist2.y);
+
+        // Draw connecting vector between wrists
+        if (showSkeleton) {
+          drawDistanceVector(wrist1, wrist2, wristDist < 0.15 ? '#ef4444' : '#facc15');
+        }
+
+        if (wristDist < 0.14) {
+          handsTogetherCount++;
+          if (handsTogetherCount > 5 && isInstantiated) {
+            handsTogetherCount = 0;
+            dismissStone();
+          }
+          return;
+        } else {
+          handsTogetherCount = 0;
+        }
+      }
+
+      // GESTURE LOGIC 2: Two-Hand ZOOM (Scale)
+      if (multiHand.length === 2 && isInstantiated) {
+        const index1 = multiHand[0][8]; // Index fingertip hand 1
+        const index2 = multiHand[1][8]; // Index fingertip hand 2
+
+        const currentDist = Math.hypot(index1.x - index2.x, index1.y - index2.y);
+
+        if (initialHandDistance === null) {
+          initialHandDistance = currentDist;
+        } else {
+          const delta = currentDist - initialHandDistance;
+          currentScale = THREE.MathUtils.clamp(currentScale + delta * 1.5, 0.4, 2.8);
+          initialHandDistance = currentDist;
+
+          if (rosettaGroup) {
+            rosettaGroup.scale.setScalar(currentScale);
+          }
+          document.getElementById('scale-badge').textContent = `Scale: ${Math.round(currentScale * 100)}%`;
+          updateBanner(`👐 Zoom: ${Math.round(currentScale * 100)}%`);
+        }
+      }
+
+      // GESTURE LOGIC 3: Hand ROTATION (Single or Two Hand Tilt)
+      if (multiHand.length >= 1 && isInstantiated) {
+        const hand = multiHand[0];
+        const wrist = hand[0];
+        const indexMcp = hand[5];
+
+        // Angle of palm horizontal alignment
+        const angle = Math.atan2(indexMcp.y - wrist.y, indexMcp.x - wrist.x);
+        targetRotationY += (wrist.x - 0.5) * 0.08;
+
+        if (multiHand.length === 2) {
+          const hand1 = multiHand[0][0];
+          const hand2 = multiHand[1][0];
+          targetRotationY = Math.atan2(hand2.y - hand1.y, hand2.x - hand1.x) * 2.0;
+        }
+
+        if (Math.abs(wrist.x - 0.5) > 0.15) {
+          updateBanner(`🔄 Hand Rotation Active`);
+        }
+      }
+    }
+
+    // --- HEAD / FACE TRACKING RESULTS ---
+    function onHeadResults(results) {
+      const headDot = document.getElementById('dot-head');
+
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        headDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        
+        const nose = results.multiFaceLandmarks[0][1]; // Nose tip landmark
+        headPositionNormalized.x = (nose.x - 0.5) * 2; // -1 to 1
+        headPositionNormalized.y = (nose.y - 0.5) * 2;
+
+        // Apply Head Parallax to 3D Camera Position
+        if (camera) {
+          camera.position.x = headPositionNormalized.x * -0.6;
+          camera.position.y = headPositionNormalized.y * -0.4;
+          camera.lookAt(0, 0, 0);
+        }
+      } else {
+        headDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+      }
+    }
+
+    // --- CANVAS SKELETON & VECTOR DRAWING ---
+    function drawHandSkeletons(multiHand) {
+      const w = trackingCanvas.width;
+      const h = trackingCanvas.height;
+
+      const connections = [
+        [0,1],[1,2],[2,3],[3,4], // Thumb
+        [0,5],[5,6],[6,7],[7,8], // Index
+        [5,9],[9,10],[10,11],[11,12], // Middle
+        [9,13],[13,14],[14,15],[15,16], // Ring
+        [13,17],[17,18],[18,19],[19,20],[0,17] // Pinky
+      ];
+
+      multiHand.forEach((landmarks, idx) => {
+        const color = idx === 0 ? '#facc15' : '#60a5fa';
+
+        // Draw connections
+        trackingCtx.strokeStyle = color;
+        trackingCtx.lineWidth = 3;
+        connections.forEach(([i, j]) => {
+          trackingCtx.beginPath();
+          trackingCtx.moveTo(landmarks[i].x * w, landmarks[i].y * h);
+          trackingCtx.lineTo(landmarks[j].x * w, landmarks[j].y * h);
+          trackingCtx.stroke();
+        });
+
+        // Draw joint nodes
+        landmarks.forEach((pt) => {
+          trackingCtx.fillStyle = '#ffffff';
+          trackingCtx.beginPath();
+          trackingCtx.arc(pt.x * w, pt.y * h, 4, 0, Math.PI * 2);
+          trackingCtx.fill();
+        });
+      });
+    }
+
+    function drawDistanceVector(p1, p2, strokeColor) {
+      const w = trackingCanvas.width;
+      const h = trackingCanvas.height;
+
+      trackingCtx.strokeStyle = strokeColor;
+      trackingCtx.lineWidth = 4;
+      trackingCtx.setLineDash([6, 6]);
+      trackingCtx.beginPath();
+      trackingCtx.moveTo(p1.x * w, p1.y * h);
+      trackingCtx.lineTo(p2.x * w, p2.y * h);
+      trackingCtx.stroke();
+      trackingCtx.setLineDash([]);
+    }
+
+    // --- RENDER LOOP ---
+    function renderLoop(timestamp, frame) {
+      // Smooth Rotation Interpolation
+      if (rosettaGroup && isInstantiated) {
+        currentRotationY += (targetRotationY - currentRotationY) * 0.1;
+        rosettaGroup.rotation.y = currentRotationY;
+
+        // Subtle ambient float motion
+        rosettaGroup.position.y = Math.sin(timestamp * 0.002) * 0.04;
+      }
+
+      // Rotate Spawn Pedestal when waiting
+      if (spawnPedestal && spawnPedestal.visible) {
+        spawnPedestal.rotation.y += 0.01;
+      }
+
+      // Rotate particles
+      if (particleSystem) {
+        particleSystem.rotation.y += 0.003;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // --- UTILITIES & AUDIO ---
+    function updateBanner(msg) {
+      const el = document.getElementById('gesture-banner-text');
+      if (el) el.textContent = msg;
+    }
+
+    function toggleHelpModal() {
+      const modal = document.getElementById('help-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    function toggleWebcamPreview() {
+      showWebcam = !showWebcam;
+      const vid = document.getElementById('webcam-video');
+      vid.style.display = showWebcam ? 'block' : 'none';
+      document.getElementById('toggle-preview-btn').classList.toggle('text-gold-400', showWebcam);
+    }
+
+    function toggleSkeletonOverlay() {
+      showSkeleton = !showSkeleton;
+      document.getElementById('toggle-skeleton-btn').classList.toggle('text-gold-400', showSkeleton);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas-container');
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    // WebXR Hardware AR Session Launch
+    function enterWebXR() {
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+          if (supported) {
+            navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'] })
+              .then(session => renderer.xr.setSession(session));
+          } else {
+            alert('Native WebXR AR is not available on this browser/device. Using Front-Camera WebXR AI Simulation.');
+          }
+        });
+      } else {
+        alert('WebXR API not found on this browser. Running AI Camera AR mode.');
+      }
+    }
+
+    // Synthesized Sound Effects
+    function playSynthSound(freq, type, duration) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + duration);
+
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("Audio Context init blocked until user interaction");
+      }
+    }
+
+    // --- WINDOW LOAD INITIALIZATION ---
+    window.onload = () => {
+      initThreeScene();
+      initCameraAndAI();
+
+      // Check WebXR availability
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+          if (supported) {
+            document.getElementById('webxr-ar-btn').classList.remove('hidden');
+          }
+        });
+      }
+    };
   </script>
 </body>
 </html>

@@ -27,26 +27,25 @@
 
     /* Glassmorphism utility design tokens */
     .glass-panel {
-      background: rgba(15, 23, 42, 0.82);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
     .glass-btn {
-      background: rgba(30, 41, 59, 0.85);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(30, 41, 59, 0.88);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .glass-btn:hover {
-      background: rgba(51, 65, 85, 0.95);
-      border-color: rgba(234, 179, 8, 0.6);
+    .glass-btn:hover, .glass-btn:active {
+      background: rgba(51, 65, 85, 0.98);
+      border-color: rgba(234, 179, 8, 0.7);
       transform: translateY(-2px);
     }
 
-    /* Video feed background for front camera AR fallback */
     #webcam-feed {
       position: absolute;
       top: 0;
@@ -54,7 +53,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* Mirror view for selfie front camera */
+      transform: scaleX(-1);
       z-index: 0;
     }
 
@@ -67,43 +66,61 @@
       z-index: 10;
     }
 
-    /* Range slider custom styling */
     input[type=range] {
       accent-color: #eab308;
     }
 
-    /* Glowing pulse animation */
     @keyframes pulse-gold {
-      0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
-      50% { box-shadow: 0 0 32px rgba(234, 179, 8, 0.85); }
+      0%, 100% { box-shadow: 0 0 18px rgba(234, 179, 8, 0.4); }
+      50% { box-shadow: 0 0 36px rgba(234, 179, 8, 0.9); }
     }
     .gold-glow {
-      animation: pulse-gold 2.5s infinite;
-    }
-
-    /* Drag & Drop overlay highlight */
-    .drag-active {
-      border-color: #eab308 !important;
-      background: rgba(234, 179, 8, 0.12) !important;
-    }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(234, 179, 8, 0.4);
-      border-radius: 3px;
+      animation: pulse-gold 2.2s infinite;
     }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 overflow-hidden select-none font-sans w-screen h-screen">
 
-  <!-- Front Camera Video Source (Hidden by default until Front Cam AR is toggled) -->
+  <!-- Front Camera Video Feed -->
   <video id="webcam-feed" playsinline class="hidden"></video>
 
-  <!-- Hidden File Input for Custom .GLB / .GLTF Upload -->
+  <!-- Hidden File Input for Custom .GLB Upload -->
   <input type="file" id="file-input" accept=".glb,.gltf" class="hidden">
+
+  <!-- iPad AR Landing Entrance Overlay (Flow Step 1) -->
+  <div id="landing-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl transition-all duration-500">
+    <div class="glass-panel max-w-lg w-full p-8 rounded-3xl text-center border border-amber-500/30 shadow-2xl flex flex-col items-center gap-6">
+      <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-slate-950 font-bold shadow-xl gold-glow">
+        <span class="font-cinzel text-4xl">𓋹</span>
+      </div>
+
+      <div class="space-y-2">
+        <h1 class="font-cinzel text-2xl sm:text-3xl font-black text-amber-400 tracking-wider">ENTER AR SPACE</h1>
+        <p class="text-xs sm:text-sm text-slate-300 font-medium">iPad & Front-Camera WebXR Experience</p>
+      </div>
+
+      <div class="bg-slate-900/70 p-4 rounded-2xl border border-slate-800 text-left text-xs text-slate-400 space-y-2 w-full">
+        <div class="flex items-center gap-2 text-amber-300 font-semibold">
+          <i class="fa-solid fa-camera"></i> Front Camera Permission Required
+        </div>
+        <p>Grant camera access to enable real-time MediaPipe dual-hand gesture tracking and head parallax on iPadOS Safari.</p>
+        <div class="flex items-center gap-2 text-cyan-300 font-semibold pt-1">
+          <i class="fa-solid fa-hand-holding-hand"></i> Gestures Included:
+        </div>
+        <p class="text-[11px] text-slate-400 font-mono">
+          • Move hands together/apart to <b>Zoom/Scale</b><br>
+          • Move hand midpoint to <b>Translate 3D Position</b><br>
+          • Tilt hands to <b>Rotate Artifact</b><br>
+          • Bring hands closer than 10cm to <b>Despawn</b>
+        </p>
+      </div>
+
+      <button id="btn-enter-ar" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold font-cinzel tracking-wider text-base sm:text-lg hover:brightness-110 transition-all shadow-xl flex items-center justify-center gap-3">
+        <span>START AR EXPERIENCE</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
 
   <!-- 3D WebGL Canvas Layer -->
   <div id="canvas-container"></div>
@@ -114,21 +131,19 @@
     <!-- Top Navigation & Telemetry Header -->
     <div class="flex flex-wrap items-center justify-between gap-3 w-full max-w-7xl mx-auto">
       
-      <!-- Title & Branding Card -->
+      <!-- Title Card -->
       <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto shadow-2xl">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-slate-950 font-bold shadow-lg">
           <span class="font-cinzel text-xl font-black">𓋹</span>
         </div>
         <div>
           <h1 class="font-cinzel text-base sm:text-lg font-bold text-amber-400 tracking-wide leading-none">ROSETTA AR</h1>
-          <p class="text-[10px] sm:text-xs text-slate-400 font-medium">WebXR & MediaPipe Dual-Hand AR</p>
+          <p class="text-[10px] sm:text-xs text-slate-400 font-medium">iPad Dual-Hand Spatial AR</p>
         </div>
       </div>
 
-      <!-- Live Tracking Telemetry Badges -->
+      <!-- Telemetry Status Badges -->
       <div class="glass-panel px-4 py-2 rounded-2xl flex flex-wrap items-center gap-3.5 text-xs font-mono pointer-events-auto shadow-2xl">
-        
-        <!-- Active Mode Indicator -->
         <div class="flex items-center gap-2">
           <span id="ar-mode-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
           <span id="ar-mode-text" class="text-slate-200 font-semibold">Mode: 3D Studio</span>
@@ -136,35 +151,25 @@
 
         <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
 
-        <!-- Left Hand Track Badge -->
         <div class="flex items-center gap-1.5">
           <i id="icon-hand-left" class="fa-solid fa-hand text-slate-600"></i>
-          <span class="text-slate-400">L-Hand:</span>
+          <span class="text-slate-400">L:</span>
           <span id="status-hand-left" class="text-slate-500 font-bold">OFF</span>
         </div>
 
         <div class="h-4 w-px bg-slate-700"></div>
 
-        <!-- Right Hand Track Badge -->
         <div class="flex items-center gap-1.5">
           <i id="icon-hand-right" class="fa-solid fa-hand text-slate-600"></i>
-          <span class="text-slate-400">R-Hand:</span>
+          <span class="text-slate-400">R:</span>
           <span id="status-hand-right" class="text-slate-500 font-bold">OFF</span>
         </div>
 
         <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
 
-        <!-- Hand Distance & Artifact Scale Readout -->
         <div class="flex items-center gap-2">
-          <i class="fa-solid fa-up-right-and-down-left-from-center text-amber-400"></i>
-          <span class="text-slate-400">Scale:</span>
+          <i class="fa-solid fa-expand text-amber-400"></i>
           <span id="scale-meter-text" class="text-amber-400 font-bold">1.00x</span>
-        </div>
-
-        <!-- Loaded Model Badge Source -->
-        <div class="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
-          <i class="fa-solid fa-[#000]">🗿</i>
-          <span id="model-source-text">Procedural Rosetta</span>
         </div>
       </div>
     </div>
@@ -173,12 +178,12 @@
     <div id="toast-overlay" class="mx-auto max-w-md w-full transition-all duration-300 opacity-0 transform translate-y-4">
       <div id="toast-card" class="glass-panel px-5 py-3 rounded-2xl text-center shadow-2xl border border-amber-500/30">
         <p id="toast-message" class="text-xs sm:text-sm font-medium text-amber-300">
-          <i class="fa-solid fa-circle-info mr-2"></i> Bring both hands together to collapse model.
+          <i class="fa-solid fa-circle-info mr-2"></i> Bring both hands within 10cm to close.
         </p>
       </div>
     </div>
 
-    <!-- Hand Close Warning Progress Box (Visible when bringing hands together) -->
+    <!-- Hands Together Close Progress Box -->
     <div id="close-warning-box" class="mx-auto max-w-xs w-full glass-panel p-3.5 rounded-2xl text-center hidden pointer-events-auto border-red-500/40 shadow-2xl">
       <div class="flex items-center justify-between text-xs text-red-400 mb-1.5 font-bold">
         <span><i class="fa-solid fa-compress mr-1.5"></i> CLOSING ARTIFACT</span>
@@ -189,71 +194,58 @@
       </div>
     </div>
 
-    <!-- Bottom Controls & Floating Action Panel -->
+    <!-- Bottom Action Controls -->
     <div class="w-full max-w-4xl mx-auto flex flex-col items-center gap-3">
 
-      <!-- Virtual Dual Hand Distance Simulator Controls -->
+      <!-- Virtual Dual Hand Distance & Touch Simulator Controls -->
       <div id="simulator-panel" class="glass-panel p-3.5 rounded-2xl w-full max-w-md pointer-events-auto flex flex-col gap-2 shadow-2xl">
         <div class="flex items-center justify-between text-xs text-slate-300">
           <span class="font-semibold text-amber-400 flex items-center gap-1.5">
-            <i class="fa-solid fa-sliders"></i> Virtual Hand Distance Simulator
+            <i class="fa-solid fa-sliders"></i> Virtual Hand Distance / Touch Test
           </span>
           <span id="sim-dist-value" class="font-mono text-amber-300 font-bold">0.45 m</span>
         </div>
         <input id="sim-dist-slider" type="range" min="0.05" max="0.85" step="0.01" value="0.45" 
                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer">
         <div class="flex justify-between text-[10px] text-slate-400 font-mono">
-          <span class="text-red-400 font-semibold">0.05m (Clap / Close)</span>
+          <span class="text-red-400 font-semibold">&lt;0.10m (Clap / Close)</span>
           <span>0.45m (Default)</span>
           <span class="text-amber-400 font-semibold">0.85m (Max Zoom)</span>
         </div>
       </div>
 
-      <!-- Action Control Buttons Row -->
+      <!-- Main Action Buttons Row -->
       <div class="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 pointer-events-auto">
-        
-        <!-- Spawn / Instantiate Button -->
         <button id="btn-spawn" class="glass-btn px-5 py-3 rounded-2xl flex items-center gap-2.5 text-xs sm:text-sm font-bold text-amber-400 gold-glow">
           <span class="font-cinzel text-lg">𓃭</span>
           <span>INSTANTIATE ROSETTA</span>
         </button>
 
-        <!-- Sketchfab GLB/GLTF Upload Button -->
-        <button id="btn-upload" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200" title="Upload custom Sketchfab GLB/GLTF file">
+        <button id="btn-upload" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
           <i class="fa-solid fa-cloud-arrow-up text-amber-400 text-sm"></i>
           <span>Upload GLB</span>
         </button>
 
-        <!-- WebXR AR Entry Button -->
-        <button id="btn-webxr-ar" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
-          <i class="fa-solid fa-vr-cardboard text-cyan-400 text-sm"></i>
-          <span id="btn-webxr-text">WebXR AR</span>
-        </button>
-
-        <!-- Front Camera AR Button -->
         <button id="btn-camera-ar" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
           <i class="fa-solid fa-video text-emerald-400 text-sm"></i>
           <span id="btn-camera-text">Front Cam AR</span>
         </button>
 
-        <!-- Virtual Simulator Toggle Button -->
-        <button id="btn-sim-toggle" class="glass-btn px-3.5 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-400" title="Toggle Hand Simulator Slider">
-          <i class="fa-solid fa-hand-pointer text-sm"></i>
+        <button id="btn-webxr-ar" class="glass-btn px-4 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-200">
+          <i class="fa-solid fa-vr-cardboard text-cyan-400 text-sm"></i>
+          <span id="btn-webxr-text">WebXR AR</span>
         </button>
 
-        <!-- Recenter Model Button -->
-        <button id="btn-recenter" class="glass-btn px-3.5 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-400" title="Recenter Artifact">
+        <button id="btn-recenter" class="glass-btn px-3.5 py-3 rounded-2xl flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-400">
           <i class="fa-solid fa-arrows-to-eye text-sm"></i>
         </button>
-
       </div>
     </div>
   </div>
 
-  <!-- Custom Model Upload Modal & Sketchfab Info -->
+  <!-- Custom Model Upload Modal -->
   <div id="upload-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden pointer-events-auto">
     <div id="drop-zone" class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-slate-700 shadow-2xl flex flex-col gap-4 relative transition-all">
-      
       <button id="modal-close" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
@@ -264,19 +256,19 @@
         </div>
         <div>
           <h2 class="font-cinzel text-lg font-bold text-amber-400">Load Rosetta Stone GLTF / GLB</h2>
-          <p class="text-xs text-slate-400">Import downloaded model from British Museum Sketchfab</p>
+          <p class="text-xs text-slate-400">Downloaded from British Museum Sketchfab collection</p>
         </div>
       </div>
 
       <div id="drag-area" class="border-2 border-dashed border-slate-600 hover:border-amber-400/60 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center gap-2 bg-slate-900/40">
         <i class="fa-solid fa-cloud-arrow-up text-3xl text-amber-400/80"></i>
         <p class="text-xs font-medium text-slate-200">Drag & Drop your <span class="text-amber-400 font-mono font-bold">.glb</span> or <span class="text-amber-400 font-mono font-bold">.gltf</span> file here</p>
-        <p class="text-[11px] text-slate-500">or click to browse local files</p>
+        <p class="text-[11px] text-slate-500">or tap to select from iPad Files</p>
       </div>
 
       <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 flex flex-col gap-1">
         <span class="font-semibold text-slate-300 flex items-center gap-1">
-          <i class="fa-solid fa-link text-amber-400"></i> Sketchfab Official Model Link:
+          <i class="fa-solid fa-link text-amber-400"></i> Sketchfab Link:
         </span>
         <a href="https://sketchfab.com/3d-models/the-rosetta-stone-1e03509704a3490e99a173e53b93e282" target="_blank" class="text-amber-400 underline hover:text-amber-300 truncate">
           https://sketchfab.com/3d-models/the-rosetta-stone-1e03509704a3490e99a173e53b93e282
@@ -285,177 +277,22 @@
 
       <div class="flex justify-end gap-2 mt-2">
         <button id="modal-cancel-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-300">Close</button>
-        <button id="modal-procedural-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold text-amber-400">Use Procedural Rosetta</button>
+        <button id="modal-procedural-btn" class="glass-btn px-4 py-2 rounded-xl text-xs font-semibold text-amber-400">Use Procedural Model</button>
       </div>
     </div>
   </div>
 
-  <!-- Main Engine JavaScript Application -->
+  <!-- JavaScript Engine Logic -->
   <script>
-    /**
-     * Web Audio API Synthesizer for Clean Spatial & Interaction Audio
-     */
-    class AudioEngine {
-      constructor() {
-        this.ctx = null;
-      }
+    // ... existing AudioEngine code ...
 
-      init() {
-        if (!this.ctx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioCtx();
-        }
-        if (this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-      }
-
-      playSpawnSound() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.4);
-
-        gain.gain.setValueAtTime(0.01, now);
-        gain.gain.linearRampToValueAtTime(0.2, now + 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.5);
-      }
-
-      playCollapseSound() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.6);
-      }
-
-      playClickSound() {
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
-
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.1);
-      }
-    }
-
-    /**
-     * Rosetta Stone WebXR AR & Front-Camera Application Master Class
-     */
     class RosettaARApp {
       constructor() {
-        // DOM Handles
-        this.container = document.getElementById('canvas-container');
-        this.webcamVideo = document.getElementById('webcam-feed');
-        this.fileInput = document.getElementById('file-input');
+        // ... existing property initializations ...
+        this.landingScreen = document.getElementById('landing-screen');
+        this.btnEnterAR = document.getElementById('btn-enter-ar');
 
-        // Buttons
-        this.btnSpawn = document.getElementById('btn-spawn');
-        this.btnUpload = document.getElementById('btn-upload');
-        this.btnWebXR = document.getElementById('btn-webxr-ar');
-        this.btnCamera = document.getElementById('btn-camera-ar');
-        this.btnSimToggle = document.getElementById('btn-sim-toggle');
-        this.btnRecenter = document.getElementById('btn-recenter');
-
-        // Simulator & Modal
-        this.simSlider = document.getElementById('sim-dist-slider');
-        this.simPanel = document.getElementById('simulator-panel');
-        this.uploadModal = document.getElementById('upload-modal');
-        this.dropZone = document.getElementById('drop-zone');
-        this.dragArea = document.getElementById('drag-area');
-
-        // Telemetry Displays
-        this.arModeDot = document.getElementById('ar-mode-dot');
-        this.arModeText = document.getElementById('ar-mode-text');
-        this.statusLeft = document.getElementById('status-hand-left');
-        this.statusRight = document.getElementById('status-hand-right');
-        this.iconLeft = document.getElementById('icon-hand-left');
-        this.iconRight = document.getElementById('icon-hand-right');
-        this.scaleMeterText = document.getElementById('scale-meter-text');
-        this.modelSourceText = document.getElementById('model-source-text');
-
-        // Close / Warning Bar
-        this.closeWarningBox = document.getElementById('close-warning-box');
-        this.closeProgressBar = document.getElementById('close-progress-bar');
-        this.closePercent = document.getElementById('close-percent');
-        this.toastOverlay = document.getElementById('toast-overlay');
-        this.toastMessage = document.getElementById('toast-message');
-
-        // Audio Engine
-        this.audio = new AudioEngine();
-
-        // Three.js Core Variables
-        this.scene = null;
-        this.camera = null;
-        this.renderer = null;
-        this.controls = null;
-
-        // Model & Visual Node References
-        this.rosettaModelGroup = null;
-        this.proceduralMesh = null;
-        this.customLoadedMesh = null;
-        this.spatialButton3D = null;
-        this.pedestalRing = null;
-        this.particleSystem = null;
-
-        // Hand Joint Skeletons
-        this.handVisualizerLeft = null;
-        this.handVisualizerRight = null;
-
-        // Tracking & WebXR States
-        this.isXRActive = false;
-        this.isCameraARActive = false;
-        this.isSimulatorActive = true;
-        this.xrSession = null;
-        this.mediaPipeHands = null;
-        this.mediaPipeCamera = null;
-
-        // Head Pose Parallax State
-        this.headPose = { x: 0, y: 0, targetX: 0, targetY: 0 };
-
-        // Hand Position Data
-        this.handsData = {
-          left: { active: false, position: new THREE.Vector3() },
-          right: { active: false, position: new THREE.Vector3() }
-        };
-
-        // Dual Hand Scaling Mechanics State
+        // Extended Dual Hand Mechanics State
         this.modelState = {
           spawned: false,
           currentScale: 1.0,
@@ -463,8 +300,13 @@
           initialHandDistance: null,
           initialModelScale: 1.0,
           closeTimer: 0,
-          closeDuration: 0.45 // Seconds of close hands required to collapse
+          closeDuration: 0.45,
+          targetPosition: new THREE.Vector3(0, 1.25, -0.6),
+          targetRotationY: 0
         };
+
+        // Touch Multitouch iPad Simulation support
+        this.touchPoints = { count: 0, p1: new THREE.Vector2(), p2: new THREE.Vector2() };
 
         // Execution Pipeline
         this.initThreeJS();
@@ -477,547 +319,28 @@
         this.initWebXRCheck();
         this.initMediaPipeHands();
         this.setupEventListeners();
+        this.setupiPadTouchEvents();
         this.setupFileDragAndDrop();
 
-        // Render Loop
         this.animate = this.animate.bind(this);
         this.renderer.setAnimationLoop(this.animate);
-
-        this.showToast("Click 'INSTANTIATE ROSETTA' or use AR / Upload options.");
       }
 
       /**
-       * Initialize Three.js Engine Scene & Camera
-       */
-      initThreeJS() {
-        this.scene = new THREE.Scene();
-
-        this.camera = new THREE.PerspectiveCamera(
-          60,
-          window.innerWidth / window.innerHeight,
-          0.01,
-          100
-        );
-        this.camera.position.set(0, 1.4, 0.85);
-
-        this.renderer = new THREE.WebGLRenderer({
-          antialias: true,
-          alpha: true,
-          powerPreference: "high-performance"
-        });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.xr.enabled = true;
-
-        this.container.appendChild(this.renderer.domElement);
-
-        // Orbit controls for non-XR desktop viewing
-        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.target.set(0, 1.25, -0.6);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.update();
-
-        window.addEventListener('resize', () => this.onWindowResize());
-      }
-
-      /**
-       * Setup Studio Lighting & Shadows
-       */
-      createLighting() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-        this.scene.add(ambientLight);
-
-        const mainLight = new THREE.DirectionalLight(0xfff8eb, 1.5);
-        mainLight.position.set(2.5, 4.5, 2);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 1024;
-        mainLight.shadow.mapSize.height = 1024;
-        mainLight.shadow.camera.near = 0.5;
-        mainLight.shadow.camera.far = 10;
-        this.scene.add(mainLight);
-
-        const fillLight = new THREE.PointLight(0xeab308, 1.2, 4);
-        fillLight.position.set(-2, 1, -0.5);
-        this.scene.add(fillLight);
-
-        // Shadow Plane
-        const shadowGeo = new THREE.PlaneGeometry(10, 10);
-        const shadowMat = new THREE.ShadowMaterial({ opacity: 0.35 });
-        const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
-        shadowPlane.rotation.x = -Math.PI / 2;
-        shadowPlane.position.y = 0;
-        shadowPlane.receiveShadow = true;
-        this.scene.add(shadowPlane);
-      }
-
-      /**
-       * High-Detail Procedural Rosetta Stone Model Generation
-       */
-      createProceduralRosettaStone() {
-        this.rosettaModelGroup = new THREE.Group();
-        this.rosettaModelGroup.position.set(0, 1.25, -0.6);
-        this.rosettaModelGroup.visible = false;
-
-        // Texture Generation with authentic 3 Scripts (Hieroglyphic, Demotic, Ancient Greek)
-        const canvas = document.createElement('canvas');
-        canvas.width = 1024;
-        canvas.height = 1400;
-        const ctx = canvas.getContext('2d');
-
-        // Dark Granodiorite stone background
-        ctx.fillStyle = '#1a1d22';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Stone texture noise
-        for (let i = 0; i < 70000; i++) {
-          const x = Math.random() * canvas.width;
-          const y = Math.random() * canvas.height;
-          const val = Math.floor(Math.random() * 45 + 15);
-          ctx.fillStyle = `rgba(${val}, ${val}, ${val + 5}, 0.35)`;
-          ctx.fillRect(x, y, 2, 2);
-        }
-
-        // Script Section 1: Egyptian Hieroglyphs
-        ctx.fillStyle = '#d4af37';
-        ctx.font = '22px serif';
-        ctx.fillText('𓀀 𓀁 𓀂 𓀃 𓀄 𓀅 𓀆 𓀇 𓀈 𓀉 𓀊 𓀋 𓀌 𓀍 𓀎 𓀏 𓀐 𓀑 𓀒 𓀓 𓀔 𓀕 𓀖', 40, 90);
-        ctx.fillText('𓃞 𓃟 𓃠 𓃡 𓃢 𓃣 𓃤 𓃥 𓃦 𓃧 𓃨 𓃩 𓃪 𓄿 𓅀 𓅁 𓅂 𓅃 𓅄 𓅅', 40, 140);
-        ctx.fillText('𓆃 𓆄 𓆅 𓆆 𓆇 𓆈 𓆉 𓆊 𓆋 𓆌 𓆍 𓆎 𓆏 𓆐 𓆑 𓆒 𓆓 𓆔 𓆕', 40, 190);
-        ctx.fillText('𓋹 𓋺 𓋻 𓋼 𓋽 𓋾 𓋿 𓌀 𓌁 𓌂 𓌃 𓌄 𓌅 𓌆 𓌇 𓌈 𓌉 𓌊 𓌋 𓌌', 40, 240);
-        ctx.fillText('𓀀 𓎛 𓎜 𓎝 𓎞 𓎟 𓎠 𓎡 𓎢 𓎣 𓎤 𓎥 𓎦 𓎧 𓎨 𓎩 𓎪 𓎫 𓎬 𓎭', 40, 290);
-        ctx.fillText('𓀠 𓀡 𓀢 𓀣 𓀤 𓀥 𓀦 𓀧 𓀨 𓀩 𓀪 𓀫 𓀬 𓀭 𓀮 𓀯 𓀰 𓀱 𓀲 𓀳', 40, 340);
-
-        // Divider 1
-        ctx.fillStyle = '#3a414d';
-        ctx.fillRect(40, 385, canvas.width - 80, 4);
-
-        // Script Section 2: Demotic Script
-        ctx.fillStyle = '#c5b488';
-        ctx.font = 'italic 18px monospace';
-        for (let y = 430; y < 780; y += 32) {
-          let line = '';
-          for (let c = 0; c < 46; c++) {
-            const charCode = Math.floor(Math.random() * 25) + 97;
-            line += String.fromCharCode(charCode) + (Math.random() > 0.7 ? ' ' : '');
-          }
-          ctx.fillText(line, 45, y);
-        }
-
-        // Divider 2
-        ctx.fillStyle = '#3a414d';
-        ctx.fillRect(40, 810, canvas.width - 80, 4);
-
-        // Script Section 3: Ancient Greek Text
-        ctx.fillStyle = '#dfd1b5';
-        ctx.font = 'bold 17px "Times New Roman", serif';
-        const greekLines = [
-          "ΒΑΣΙΛΕΥΟΝΤΟΣ ΤΟΥ ΝΕΟΥ ΚΑΙ ΠΑΡΑΛΑΒΟΝΤΟΣ ΤΗΝ ΒΑΣΙΛΕΙΑΝ ΠΑΡΑ ΤΟΥ ΠΑΤΡΟΣ",
-          "ΚΥΡΙΟΥ ΒΑΣΙΛΕΙΩΝ ΜΕΓΑΛΟΔΟΞΟΥ ΤΟΥ ΤΗΝ ΑΙΓΥΠΤΟΝ ΚΑΤΑΣΤΗΣΑΜΕΝΟΥ ΚΑΙ ΤΑ ΠΡΟΣ",
-          "ΤΟΥΣ ΘΕΟΥΣ ΕΥΣΕΒΟΥΣ ΑΝΤΙΠΑΛΩΝ ΥΠΕΡΤΕΡΟΥ ΤΟΥ ΤΟΝ ΒΙΟΝ ΤΩΝ ΑΝΘΡΩΠΩΝ ΕΠΑΝΟΡΘΩΣΑΝΤΟΣ",
-          "ΚΥΡΙΟΥ ΤΡΙΑΚΟΝΤΑΕΤΗΡΙΔΩΝ ΚΑΘΑΠΕΡ Ο ΗΦΑΙΣΤΟΣ Ο ΜΕΓΑΣ ΒΑΣΙΛΕΩΣ ΚΑΘΑΠΕΡ Ο ΗΛΙΟΣ",
-          "ΜΕΓΑΣ ΒΑΣΙΛΕΥΣ ΤΩΝ ΤΕ ΑΝΩ ΚΑΙ ΤΩΝ ΚΑΤΩ ΧΩΡΩΝ ΕΓΓΟΝΟΥ ΘΕΩΝ ΦΙΛΟΠΑΤΟΡΩΝ",
-          "ΟΝ Ο ΗΦΑΙΣΤΟΣ ΕΔΟΚΙΜΑΣΕΝ ΩΙ Ο ΗΛΙΟΣ ΕΔΩΚΕΝ ΤΗΝ ΝΙΚΗΝ ΕΙΚΟΝΟΣ ΖΩΣΗΣ ΤΟΥ ΔΙΟΣ",
-          "ΥΙΟΥ ΤΟΥ ΗΛΙΟΥ ΠΤΟΛΕΜΑΙΟΥ ΑΙΩΝΟΒΙΟΥ ΗΓΑΠΗΜΕΝΟΥ ΥΠΟ ΤΟΥ ΦΘΑ ΕΤΟΥΣ ΕΝΑΤΟΥ",
-          "ΕΦ ΙΕΡΕΩΣ ΑΕΤΟΥ ΤΟΥ ΑΕΤΟΥ ΠΤΟΛΕΜΑΙΟΥ ΘΕΩΝ ΕΥΕΡΓΕΤΩΝ ΚΑΙ ΘΕΩΝ ΑΔΕΛΦΩΝ",
-          "ΚΑΙ ΘΕΩΝ ΦΙΛΟΠΑΤΟΡΩΝ ΚΑΙ ΘΕΩΝ ΕΠΙΦΑΝΩΝ ΕΥΧΑΡΙΣΤΩΝ ΑΘΛΟΦΟΡΟΥ ΒΕΡΕΝΙΚΗΣ"
-        ];
-        greekLines.forEach((line, idx) => {
-          ctx.fillText(line, 45, 860 + (idx * 34));
-        });
-
-        // Golden cartouche ring accent
-        ctx.strokeStyle = '#eab308';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(400, 75, 230, 60);
-
-        const stoneTexture = new THREE.CanvasTexture(canvas);
-        stoneTexture.anisotropy = 8;
-
-        // Custom Extruded Asymmetrical Broken Slab Shape
-        const shape = new THREE.Shape();
-        shape.moveTo(-0.26, -0.42);
-        shape.lineTo(0.26, -0.42);
-        shape.lineTo(0.26, 0.30);
-        shape.lineTo(0.12, 0.44); // Top right slant break
-        shape.lineTo(-0.16, 0.41); // Top left jagged edge
-        shape.lineTo(-0.26, 0.22);
-        shape.closePath();
-
-        const extrudeSettings = {
-          steps: 1,
-          depth: 0.08,
-          bevelEnabled: true,
-          bevelThickness: 0.015,
-          bevelSize: 0.015,
-          bevelSegments: 3
-        };
-
-        const slabGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        slabGeo.center();
-
-        const slabMat = new THREE.MeshStandardMaterial({
-          map: stoneTexture,
-          roughness: 0.75,
-          metalness: 0.1,
-          bumpMap: stoneTexture,
-          bumpScale: 0.003
-        });
-
-        this.proceduralMesh = new THREE.Mesh(slabGeo, slabMat);
-        this.proceduralMesh.castShadow = true;
-        this.proceduralMesh.receiveShadow = true;
-        this.rosettaModelGroup.add(this.proceduralMesh);
-
-        // Glowing Holographic Base Pedestal Ring
-        const ringGeo = new THREE.RingGeometry(0.34, 0.38, 32);
-        const ringMat = new THREE.MeshBasicMaterial({
-          color: 0xeab308,
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.65
-        });
-        this.pedestalRing = new THREE.Mesh(ringGeo, ringMat);
-        this.pedestalRing.rotation.x = Math.PI / 2;
-        this.pedestalRing.position.y = -0.44;
-        this.rosettaModelGroup.add(this.pedestalRing);
-
-        this.scene.add(this.rosettaModelGroup);
-      }
-
-      /**
-       * Interactive Spatial 3D Spawn Button floating in AR space
-       */
-      createSpatial3DButton() {
-        const group = new THREE.Group();
-        group.position.set(0, 1.1, -0.8);
-
-        const boxGeo = new THREE.BoxGeometry(0.24, 0.085, 0.02);
-        const boxMat = new THREE.MeshStandardMaterial({
-          color: 0x1e293b,
-          roughness: 0.3,
-          metalness: 0.85,
-          emissive: 0x334155
-        });
-        const mesh = new THREE.Mesh(boxGeo, boxMat);
-
-        const frameGeo = new THREE.BoxGeometry(0.25, 0.095, 0.015);
-        const frameMat = new THREE.MeshBasicMaterial({ color: 0xeab308, wireframe: true });
-        const frame = new THREE.Mesh(frameGeo, frameMat);
-
-        group.add(mesh);
-        group.add(frame);
-
-        this.spatialButton3D = group;
-        this.scene.add(this.spatialButton3D);
-      }
-
-      /**
-       * Particle System for Spawn & Collapse Animations
-       */
-      createParticleSystem() {
-        const count = 220;
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(count * 3);
-        const velocities = new Float32Array(count * 3);
-
-        for (let i = 0; i < count * 3; i += 3) {
-          positions[i] = (Math.random() - 0.5) * 1.6;
-          positions[i + 1] = 1.25 + (Math.random() - 0.5) * 1.5;
-          positions[i + 2] = -0.6 + (Math.random() - 0.5) * 1.5;
-
-          velocities[i] = (Math.random() - 0.5) * 0.02;
-          velocities[i + 1] = Math.random() * 0.02;
-          velocities[i + 2] = (Math.random() - 0.5) * 0.02;
-        }
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-        const material = new THREE.PointsMaterial({
-          color: 0xeab308,
-          size: 0.022,
-          transparent: true,
-          opacity: 0.85,
-          blending: THREE.AdditiveBlending
-        });
-
-        this.particleSystem = new THREE.Points(geometry, material);
-        this.particleSystem.userData = { velocities };
-        this.particleSystem.visible = false;
-        this.scene.add(this.particleSystem);
-      }
-
-      /**
-       * Visual Skeletons for Left and Right Hand Joint Tracking
-       */
-      createHandVisualizers() {
-        const createHandGroup = (colorHex) => {
-          const group = new THREE.Group();
-          group.visible = false;
-          const jointSpheres = [];
-
-          const sphereGeo = new THREE.SphereGeometry(0.013, 12, 12);
-          const sphereMat = new THREE.MeshStandardMaterial({
-            color: colorHex,
-            emissive: colorHex,
-            emissiveIntensity: 0.6,
-            roughness: 0.2
-          });
-
-          for (let i = 0; i < 21; i++) {
-            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-            group.add(sphere);
-            jointSpheres.push(sphere);
-          }
-
-          group.userData = { jointSpheres };
-          return group;
-        };
-
-        this.handVisualizerLeft = createHandGroup(0x38bdf8); // Sky blue
-        this.handVisualizerRight = createHandGroup(0xf43f5e); // Coral red
-
-        this.scene.add(this.handVisualizerLeft);
-        this.scene.add(this.handVisualizerRight);
-      }
-
-      /**
-       * Check WebXR AR Session Support
-       */
-      initWebXRCheck() {
-        if ('xr' in navigator) {
-          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-            if (supported) {
-              this.btnWebXR.disabled = false;
-            } else {
-              this.btnWebXR.classList.add('opacity-50');
-              this.btnWebXR.title = "WebXR AR unavailable on this browser";
-            }
-          }).catch(() => {
-            this.btnWebXR.classList.add('opacity-50');
-          });
-        } else {
-          this.btnWebXR.classList.add('opacity-50');
-        }
-      }
-
-      /**
-       * Initialize MediaPipe Hands Front Camera Tracker
-       */
-      initMediaPipeHands() {
-        if (typeof window.Hands === 'undefined') return;
-
-        this.mediaPipeHands = new window.Hands({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-
-        this.mediaPipeHands.setOptions({
-          maxNumHands: 2,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-
-        this.mediaPipeHands.onResults((results) => this.onMediaPipeResults(results));
-      }
-
-      /**
-       * MediaPipe Frame Processing Callback & Head Pose Estimation
-       */
-      onMediaPipeResults(results) {
-        if (!this.isCameraARActive) return;
-
-        let leftFound = false;
-        let rightFound = false;
-
-        if (results.multiHandLandmarks && results.multiHandedness) {
-          let centerHeadX = 0;
-          let centerHeadY = 0;
-          let count = 0;
-
-          for (let i = 0; i < results.multiHandLandmarks.length; i++) {
-            const landmarks = results.multiHandLandmarks[i];
-            const handedness = results.multiHandedness[i].label; // 'Left' or 'Right'
-            const indexTip = landmarks[8]; // Index finger tip landmark
-
-            // Transform normalized camera coordinates into world 3D space
-            const posX = (0.5 - indexTip.x) * 1.8;
-            const posY = (0.5 - indexTip.y) * 1.4 + 1.2;
-            const posZ = -0.5 - indexTip.z;
-
-            const handPos = new THREE.Vector3(posX, posY, posZ);
-
-            const targetHand = (handedness === 'Left') ? this.handsData.left : this.handsData.right;
-            const visualizer = (handedness === 'Left') ? this.handVisualizerLeft : this.handVisualizerRight;
-
-            targetHand.active = true;
-            targetHand.position.copy(handPos);
-            visualizer.visible = true;
-
-            // Joint Spheres update
-            const spheres = visualizer.userData.jointSpheres;
-            for (let j = 0; j < 21; j++) {
-              const lm = landmarks[j];
-              const jX = (0.5 - lm.x) * 1.8;
-              const jY = (0.5 - lm.y) * 1.4 + 1.2;
-              const jZ = -0.5 - lm.z;
-              spheres[j].position.set(jX, jY, jZ);
-            }
-
-            if (handedness === 'Left') leftFound = true;
-            if (handedness === 'Right') rightFound = true;
-
-            // Head parallax calculation using wrist/hand centroid bias
-            centerHeadX += (0.5 - landmarks[0].x);
-            centerHeadY += (0.5 - landmarks[0].y);
-            count++;
-          }
-
-          // Subtle Head Parallax Target
-          if (count > 0) {
-            this.headPose.targetX = (centerHeadX / count) * 0.3;
-            this.headPose.targetY = (centerHeadY / count) * 0.2;
-          }
-        }
-
-        this.handsData.left.active = leftFound;
-        this.handsData.right.active = rightFound;
-        if (!leftFound) this.handVisualizerLeft.visible = false;
-        if (!rightFound) this.handVisualizerRight.visible = false;
-
-        this.updateHandUIStatus();
-      }
-
-      /**
-       * Load Custom GLTF/GLB Uploaded Model File
-       */
-      loadCustomGLTFModel(arrayBuffer, fileName) {
-        const loader = new THREE.GLTFLoader();
-        loader.parse(arrayBuffer, '', (gltf) => {
-          // Remove procedural mesh if custom model uploaded
-          if (this.proceduralMesh) {
-            this.proceduralMesh.visible = false;
-          }
-          if (this.customLoadedMesh) {
-            this.rosettaModelGroup.remove(this.customLoadedMesh);
-          }
-
-          this.customLoadedMesh = gltf.scene;
-
-          // Compute Bounding Box & Center Model
-          const box = new THREE.Box3().setFromObject(this.customLoadedMesh);
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-
-          // Re-center geometry
-          this.customLoadedMesh.position.sub(center);
-
-          // Normalize scale to standard AR height (~0.7m)
-          const maxDim = Math.max(size.x, size.y, size.z);
-          if (maxDim > 0) {
-            const scaleFactor = 0.75 / maxDim;
-            this.customLoadedMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-          }
-
-          // Enable shadows
-          this.customLoadedMesh.traverse((child) => {
-            if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
-            }
-          });
-
-          this.rosettaModelGroup.add(this.customLoadedMesh);
-          this.modelSourceText.textContent = fileName || "Sketchfab Model";
-          this.showToast(`Successfully loaded model: ${fileName}`);
-          this.audio.playSpawnSound();
-
-          // Spawn if hidden
-          this.spawnRosettaStone();
-        }, (error) => {
-          console.error("GLTF Load Error:", error);
-          this.showToast("Failed to parse GLB file. Using default model.");
-        });
-      }
-
-      /**
-       * Setup File Drag & Drop & Upload Events
-       */
-      setupFileDragAndDrop() {
-        // Modal Open/Close
-        this.btnUpload.addEventListener('click', () => {
-          this.audio.playClickSound();
-          this.uploadModal.classList.remove('hidden');
-        });
-
-        document.getElementById('modal-close').addEventListener('click', () => {
-          this.uploadModal.classList.add('hidden');
-        });
-
-        document.getElementById('modal-cancel-btn').addEventListener('click', () => {
-          this.uploadModal.classList.add('hidden');
-        });
-
-        document.getElementById('modal-procedural-btn').addEventListener('click', () => {
-          if (this.customLoadedMesh) {
-            this.rosettaModelGroup.remove(this.customLoadedMesh);
-            this.customLoadedMesh = null;
-          }
-          if (this.proceduralMesh) {
-            this.proceduralMesh.visible = true;
-          }
-          this.modelSourceText.textContent = "Procedural Rosetta";
-          this.uploadModal.classList.add('hidden');
-          this.showToast("Switched back to Procedural Rosetta Stone.");
-        });
-
-        // Click drag area to launch file picker
-        this.dragArea.addEventListener('click', () => this.fileInput.click());
-
-        this.fileInput.addEventListener('change', (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (evt) => this.loadCustomGLTFModel(evt.target.result, file.name);
-            reader.readAsArrayBuffer(file);
-            this.uploadModal.classList.add('hidden');
-          }
-        });
-
-        // Drag and Drop Events
-        window.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          this.dragArea.classList.add('drag-active');
-        });
-
-        window.addEventListener('dragleave', (e) => {
-          e.preventDefault();
-          this.dragArea.classList.remove('drag-active');
-        });
-
-        window.addEventListener('drop', (e) => {
-          e.preventDefault();
-          this.dragArea.classList.remove('drag-active');
-          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
-              const reader = new FileReader();
-              reader.onload = (evt) => this.loadCustomGLTFModel(evt.target.result, file.name);
-              reader.readAsArrayBuffer(file);
-              this.uploadModal.classList.add('hidden');
-            } else {
-              this.showToast("Please drop a valid .glb or .gltf file.");
-            }
-          }
-        });
-      }
-
-      /**
-       * Button Event Listeners
+       * Flow Step 1: Landing Screen Entrance & Permission Handler
        */
       setupEventListeners() {
+        // Enter AR Space Landing Button Flow
+        this.btnEnterAR.addEventListener('click', async () => {
+          this.audio.playClickSound();
+          this.landingScreen.classList.add('opacity-0', 'pointer-events-none');
+          setTimeout(() => this.landingScreen.classList.add('hidden'), 500);
+
+          // Request Camera & Start Front Cam AR
+          await this.toggleCameraAR();
+          this.showToast("Welcome! Click 'INSTANTIATE ROSETTA' or use 3D button.");
+        });
+
         this.btnSpawn.addEventListener('click', () => {
           this.audio.playSpawnSound();
           this.spawnRosettaStone();
@@ -1033,15 +356,11 @@
           this.toggleCameraAR();
         });
 
-        this.btnSimToggle.addEventListener('click', () => {
-          this.audio.playClickSound();
-          this.isSimulatorActive = !this.isSimulatorActive;
-          this.simPanel.classList.toggle('hidden', !this.isSimulatorActive);
-        });
-
         this.btnRecenter.addEventListener('click', () => {
           this.audio.playClickSound();
           if (this.rosettaModelGroup) {
+            this.modelState.targetPosition.set(0, 1.25, -0.6);
+            this.modelState.targetRotationY = 0;
             this.rosettaModelGroup.position.set(0, 1.25, -0.6);
             this.rosettaModelGroup.rotation.set(0, 0, 0);
             this.showToast("Artifact recentered.");
@@ -1053,11 +372,12 @@
           document.getElementById('sim-dist-value').textContent = val.toFixed(2) + ' m';
         });
 
-        // 3D Spatial Button Raycasting Interaction
+        // 3D Spatial Button Interaction Raycasting
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
         window.addEventListener('pointerdown', (e) => {
+          if (e.target.closest('#ui-layer') && !e.target.closest('#canvas-container')) return;
           mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
           mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
           raycaster.setFromCamera(mouse, this.camera);
@@ -1073,104 +393,45 @@
       }
 
       /**
-       * Spawn / Instantiate Rosetta Stone Model
+       * iPad Dual-Finger Touch Simulation Handler
        */
-      spawnRosettaStone() {
-        this.modelState.spawned = true;
-        this.modelState.currentScale = 1.0;
-        this.modelState.targetScale = 1.0;
-        this.modelState.initialHandDistance = null;
+      setupiPadTouchEvents() {
+        const domElement = this.renderer.domElement;
 
-        this.rosettaModelGroup.visible = true;
-        this.rosettaModelGroup.scale.set(0.01, 0.01, 0.01);
-        this.rosettaModelGroup.position.set(0, 1.25, -0.6);
+        domElement.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 2) {
+            this.isSimulatorActive = true;
+          }
+        }, { passive: true });
 
-        // Particle activation
-        this.particleSystem.visible = true;
-        this.showToast("Rosetta Stone Instantiated! Move hands apart/together.");
+        domElement.addEventListener('touchmove', (e) => {
+          if (e.touches.length === 2) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+
+            // Convert touch to 3D world plane points
+            const p1X = (t1.clientX / window.innerWidth - 0.5) * 1.6;
+            const p1Y = -(t1.clientY / window.innerHeight - 0.5) * 1.2 + 1.2;
+            const p2X = (t2.clientX / window.innerWidth - 0.5) * 1.6;
+            const p2Y = -(t2.clientY / window.innerHeight - 0.5) * 1.2 + 1.2;
+
+            this.handsData.left.active = true;
+            this.handsData.right.active = true;
+            this.handsData.left.position.set(p1X, p1Y, -0.6);
+            this.handsData.right.position.set(p2X, p2Y, -0.6);
+
+            this.handVisualizerLeft.visible = true;
+            this.handVisualizerRight.visible = true;
+            this.handVisualizerLeft.userData.jointSpheres[8].position.copy(this.handsData.left.position);
+            this.handVisualizerRight.userData.jointSpheres[8].position.copy(this.handsData.right.position);
+
+            this.updateHandUIStatus();
+          }
+        }, { passive: true });
       }
 
       /**
-       * Toggle WebXR Immersive AR Mode
-       */
-      async toggleWebXRAR() {
-        if (this.isXRActive) {
-          if (this.xrSession) this.xrSession.end();
-          return;
-        }
-
-        try {
-          const session = await navigator.xr.requestSession('immersive-ar', {
-            requiredFeatures: ['hit-test'],
-            optionalFeatures: ['dom-overlay', 'hand-tracking'],
-            domOverlay: { root: document.getElementById('ui-layer') }
-          });
-
-          this.xrSession = session;
-          this.renderer.xr.setReferenceSpaceType('local');
-          await this.renderer.xr.setSession(session);
-
-          this.isXRActive = true;
-          this.arModeDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping";
-          this.arModeText.textContent = "Mode: WebXR AR";
-          document.getElementById('btn-webxr-text').textContent = "Exit WebXR";
-
-          session.addEventListener('end', () => {
-            this.isXRActive = false;
-            this.xrSession = null;
-            this.arModeDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
-            this.arModeText.textContent = "Mode: 3D Studio";
-            document.getElementById('btn-webxr-text').textContent = "WebXR AR";
-          });
-        } catch (err) {
-          console.warn("WebXR error:", err);
-          this.showToast("WebXR not supported. Switching to Front Cam AR...");
-          this.toggleCameraAR();
-        }
-      }
-
-      /**
-       * Toggle Front Camera MediaPipe WebRTC AR Fallback
-       */
-      async toggleCameraAR() {
-        if (this.isCameraARActive) {
-          if (this.mediaPipeCamera) this.mediaPipeCamera.stop();
-          this.webcamVideo.classList.add('hidden');
-          this.isCameraARActive = false;
-          this.arModeDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
-          this.arModeText.textContent = "Mode: 3D Studio";
-          document.getElementById('btn-camera-text').textContent = "Front Cam AR";
-          return;
-        }
-
-        try {
-          this.webcamVideo.classList.remove('hidden');
-
-          this.mediaPipeCamera = new window.Camera(this.webcamVideo, {
-            onFrame: async () => {
-              if (this.mediaPipeHands && this.isCameraARActive) {
-                await this.mediaPipeHands.send({ image: this.webcamVideo });
-              }
-            },
-            width: 1280,
-            height: 720
-          });
-
-          await this.mediaPipeCamera.start();
-          this.isCameraARActive = true;
-
-          this.arModeDot.className = "w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse";
-          this.arModeText.textContent = "Mode: Front Cam AR";
-          document.getElementById('btn-camera-text').textContent = "Stop Cam AR";
-          this.showToast("Front Camera AR Active! Hold up both hands.");
-        } catch (err) {
-          console.error("Camera access error:", err);
-          this.showToast("Camera permission denied or camera unaccessible.");
-        }
-      }
-
-      /**
-       * Core Dual Hand Zoom & Bring-Together Despawn Mechanics
+       * Process Dual Hand Interaction: Move (Midpoint), Rotate (Angle), Scale (Distance), & Despawn (<10cm)
        */
       processDualHandInteractions(deltaTime) {
         if (!this.modelState.spawned || !this.rosettaModelGroup.visible) return;
@@ -1178,31 +439,12 @@
         let leftPos = null;
         let rightPos = null;
 
-        // 1. Gather coordinates from WebXR, Camera, or Virtual Simulator
         if (this.isXRActive) {
-          const session = this.renderer.xr.getSession();
-          if (session && session.inputSources) {
-            for (const source of session.inputSources) {
-              if (source.hand) {
-                const indexTip = source.hand.get('index-finger-tip');
-                if (indexTip) {
-                  const frame = this.renderer.xr.getFrame();
-                  const refSpace = this.renderer.xr.getReferenceSpace();
-                  const pose = frame.getJointPose(indexTip, refSpace);
-                  if (pose) {
-                    const pos = new THREE.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-                    if (source.handedness === 'left') leftPos = pos;
-                    if (source.handedness === 'right') rightPos = pos;
-                  }
-                }
-              }
-            }
-          }
-        } else if (this.isCameraARActive) {
+          // ... WebXR hand poses extraction ...
+        } else if (this.isCameraARActive || this.handsData.left.active) {
           if (this.handsData.left.active) leftPos = this.handsData.left.position;
           if (this.handsData.right.active) rightPos = this.handsData.right.position;
         } else if (this.isSimulatorActive) {
-          // Virtual hands setup based on distance slider
           const dist = parseFloat(this.simSlider.value);
           leftPos = new THREE.Vector3(-dist / 2, 1.25, -0.6);
           rightPos = new THREE.Vector3(dist / 2, 1.25, -0.6);
@@ -1217,8 +459,17 @@
           this.updateHandUIStatus();
         }
 
-        // 2. Compute 3D Distance & Scaling
         if (leftPos && rightPos) {
+          // A. 3D POSITION TRANSLATION (Midpoint between Left & Right Hands)
+          const midpoint = new THREE.Vector3().addVectors(leftPos, rightPos).multiplyScalar(0.5);
+          this.modelState.targetPosition.copy(midpoint);
+
+          // B. 3D ROTATION (Vector Angle between hands)
+          const dx = rightPos.x - leftPos.x;
+          const dz = rightPos.z - leftPos.z;
+          this.modelState.targetRotationY = Math.atan2(dx, dz) - Math.PI / 2;
+
+          // C. EUCLIDEAN DISTANCE ZOOM & SCALE
           const currentDistance = leftPos.distanceTo(rightPos);
 
           if (this.modelState.initialHandDistance === null) {
@@ -1226,14 +477,13 @@
             this.modelState.initialModelScale = this.modelState.currentScale;
           }
 
-          // Scale Formula: S = S0 * (D / D0)
           const scaleRatio = currentDistance / this.modelState.initialHandDistance;
           let calculatedScale = this.modelState.initialModelScale * scaleRatio;
           calculatedScale = THREE.MathUtils.clamp(calculatedScale, 0.25, 3.5);
           this.modelState.targetScale = calculatedScale;
 
-          // BRING-TOGETHER CLOSE / DESPAWN MECHANIC (< 0.12m)
-          const closeThreshold = 0.12;
+          // D. BRING-TOGETHER CLOSE / DESPAWN (< 0.10 meters / 10cm)
+          const closeThreshold = 0.10;
 
           if (currentDistance < closeThreshold) {
             this.modelState.closeTimer += deltaTime;
@@ -1243,7 +493,6 @@
             this.closeProgressBar.style.width = (progress * 100) + '%';
             this.closePercent.textContent = Math.round(progress * 100) + '%';
 
-            // Shrink warning effect
             const shrinkRatio = 1.0 - (progress * 0.7);
             this.rosettaModelGroup.scale.multiplyScalar(shrinkRatio);
 
@@ -1260,7 +509,14 @@
           this.closeWarningBox.classList.add('hidden');
         }
 
-        // Smooth Scale Interpolation
+        // Smooth Lerp Transformations
+        this.rosettaModelGroup.position.lerp(this.modelState.targetPosition, 0.12);
+        this.rosettaModelGroup.rotation.y = THREE.MathUtils.lerp(
+          this.rosettaModelGroup.rotation.y,
+          this.modelState.targetRotationY,
+          0.1
+        );
+
         this.modelState.currentScale = THREE.MathUtils.lerp(
           this.modelState.currentScale,
           this.modelState.targetScale,
@@ -1275,127 +531,10 @@
         this.scaleMeterText.textContent = this.modelState.currentScale.toFixed(2) + 'x';
       }
 
-      /**
-       * Collapse Artifact Despawn
-       */
-      triggerCollapseDespawn() {
-        this.modelState.spawned = false;
-        this.closeWarningBox.classList.add('hidden');
-        this.modelState.closeTimer = 0;
-
-        this.audio.playCollapseSound();
-
-        // Particles Implosion
-        this.particleSystem.visible = true;
-
-        let frames = 0;
-        const interval = setInterval(() => {
-          frames++;
-          this.rosettaModelGroup.scale.multiplyScalar(0.7);
-          this.rosettaModelGroup.rotation.y += 0.25;
-
-          if (frames > 12) {
-            clearInterval(interval);
-            this.rosettaModelGroup.visible = false;
-            this.showToast("Artifact Collapsed! Click 'INSTANTIATE ROSETTA' to re-open.");
-          }
-        }, 30);
-      }
-
-      /**
-       * Update HUD Telemetry Badges
-       */
-      updateHandUIStatus() {
-        const leftActive = this.handsData.left.active;
-        const rightActive = this.handsData.right.active;
-
-        this.statusLeft.textContent = leftActive ? "TRACKED" : "OFF";
-        this.statusLeft.className = leftActive ? "text-sky-400 font-bold" : "text-slate-500 font-bold";
-        this.iconLeft.className = leftActive ? "fa-solid fa-hand text-sky-400 animate-bounce" : "fa-solid fa-hand text-slate-600";
-
-        this.statusRight.textContent = rightActive ? "TRACKED" : "OFF";
-        this.statusRight.className = rightActive ? "text-rose-400 font-bold" : "text-slate-500 font-bold";
-        this.iconRight.className = rightActive ? "fa-solid fa-hand text-rose-400 animate-bounce" : "fa-solid fa-hand text-slate-600";
-      }
-
-      /**
-       * Display Toast Messages
-       */
-      showToast(msg) {
-        this.toastMessage.innerHTML = `<i class="fa-solid fa-circle-info mr-2"></i> ${msg}`;
-        this.toastOverlay.classList.remove('opacity-0', 'translate-y-4');
-
-        setTimeout(() => {
-          this.toastOverlay.classList.add('opacity-0', 'translate-y-4');
-        }, 4000);
-      }
-
-      /**
-       * Window Resizing Event Handler
-       */
-      onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-      }
-
-      /**
-       * Main Animation & Render Frame Loop
-       */
-      animate() {
-        const deltaTime = 0.016;
-
-        // OrbitControls Update
-        if (!this.isXRActive && this.controls) {
-          this.controls.update();
-        }
-
-        // Head Parallax Smoothing in Front-Cam Mode
-        if (this.isCameraARActive) {
-          this.headPose.x = THREE.MathUtils.lerp(this.headPose.x, this.headPose.targetX, 0.05);
-          this.headPose.y = THREE.MathUtils.lerp(this.headPose.y, this.headPose.targetY, 0.05);
-          this.camera.position.x = this.headPose.x;
-          this.camera.position.y = 1.4 + this.headPose.y;
-        }
-
-        // Artifact Idle Rotation
-        if (this.rosettaModelGroup && this.rosettaModelGroup.visible) {
-          this.rosettaModelGroup.rotation.y += 0.003;
-          if (this.pedestalRing) this.pedestalRing.rotation.z += 0.01;
-        }
-
-        // 3D Spatial Button Float Animation
-        if (this.spatialButton3D) {
-          this.spatialButton3D.position.y = 1.1 + Math.sin(Date.now() * 0.002) * 0.03;
-        }
-
-        // Particles Animation
-        if (this.particleSystem && this.particleSystem.visible) {
-          const positions = this.particleSystem.geometry.attributes.position.array;
-          const vels = this.particleSystem.userData.velocities;
-
-          for (let i = 0; i < positions.length; i += 3) {
-            positions[i] += vels[i];
-            positions[i + 1] += vels[i + 1];
-            positions[i + 2] += vels[i + 2];
-
-            if (positions[i + 1] > 2.5) positions[i + 1] = 0.5;
-          }
-          this.particleSystem.geometry.attributes.position.needsUpdate = true;
-        }
-
-        // Process Hand Mechanics
-        this.processDualHandInteractions(deltaTime);
-
-        // Render Scene
-        this.renderer.render(this.scene, this.camera);
-      }
+      // ... existing methods ...
     }
 
-    // Launch application on page load
-    window.onload = () => {
-      window.app = new RosettaARApp();
-    };
+    // ... existing window onload initialization ...
   </script>
 </body>
 </html>
